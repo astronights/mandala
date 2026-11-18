@@ -21,14 +21,7 @@ export const VIEW_RADIUS = 500;
 const OUTER_RADIUS = 472;
 
 export type MotifKind =
-  | "petal"
-  | "lotus"
-  | "leaf"
-  | "teardrop"
-  | "scallop"
-  | "dots"
-  | "diamond"
-  | "rays";
+  "petal" | "lotus" | "leaf" | "teardrop" | "scallop" | "dots" | "diamond" | "rays";
 
 export type GroupRole = "base" | "motif" | "accent" | "centre";
 
@@ -185,7 +178,10 @@ function drawMotif(
       place(g.petal(r0, r1 - pad * 0.5, hw, bulge, tip), main);
       if (wantsAccent) {
         const inner = r0 + h * rng.range(0.5, 0.7);
-        place(g.petal(r0, inner, hw * 0.5, bulge, tip), b.group(`r${index}-accent`, index, "accent"));
+        place(
+          g.petal(r0, inner, hw * 0.5, bulge, tip),
+          b.group(`r${index}-accent`, index, "accent"),
+        );
       }
       return kind;
     }
@@ -237,9 +233,13 @@ function drawMotif(
         const rm = r0 + h * 0.62;
         const dotR = Math.min(h * 0.1, rm * Math.sin(slot / 2 - hw) * 0.35);
         if (dotR > 2) {
-          const id = b.shape(g.circleAtPolar(rm, slot / 2, dotR));
+          // Shapes stay mirror-symmetric about their own axis (symmetry.ts
+          // relies on it), so the half-slot shift goes into the rotation.
+          const id = b.shape(g.circleAtPolar(rm, 0, dotR));
           const accent = b.group(`r${index}-accent`, index, "accent");
-          for (const c of slotCentres) b.repeat(id, accent, offsetDeg + (c * 180) / Math.PI);
+          for (const c of slotCentres) {
+            b.repeat(id, accent, offsetDeg + ((c + slot / 2) * 180) / Math.PI);
+          }
         }
       }
       return "rays";
@@ -296,7 +296,15 @@ export function generateMandala(date: string, seed: string = DEFAULT_SEED): Mand
     b.repeat(b.shape(g.leaf(centreR * 0.22, centreR * 0.94, hw, rng.next())), rosette);
     const dot = b.group("r0-accent", 0, "accent");
     b.single(b.shape(g.circle(0, 0, centreR * 0.26)), dot);
-    rings.push({ index: 0, r0: 0, r1: centreR, motif: "centre", perSegment: 1, offset: false, rim: false });
+    rings.push({
+      index: 0,
+      r0: 0,
+      r1: centreR,
+      motif: "centre",
+      perSegment: 1,
+      offset: false,
+      rim: false,
+    });
   }
 
   // ── Bands ────────────────────────────────────────────────────────────────
@@ -309,32 +317,19 @@ export function generateMandala(date: string, seed: string = DEFAULT_SEED): Mand
     const arcWidth = mid * segAngle;
     const perSegment = !rim && arcWidth > (r1 - r0) * 2.2 && rng.chance(0.5) ? 2 : 1;
 
-    let kind: MotifKind;
-    do {
-      kind = rng.weighted(rim ? RIM_MOTIFS : MOTIFS);
-    } while (kind === prevMotif);
-    // Rays look thin and lost in narrow inner bands.
-    if (kind === "rays" && r1 - r0 < 40) kind = "petal";
+    const offset = rng.chance(0.4);
 
-    const ring: RingSpec = {
-      index: i,
-      r0,
-      r1,
-      motif: kind,
-      perSegment,
-      offset: rng.chance(0.4),
-      rim,
-    };
-
+    // The rim has no band behind it, so its silhouette is made of petals. An
+    // optional offset back layer peeks out between the front petals, and the
+    // front motif then stops a little short of the edge.
+    let motifR1 = r1;
     if (rim) {
-      // The rim has no band behind it, so the silhouette is made of petals.
-      // An optional offset back layer peeks out between the front petals.
       if (rng.chance(0.65)) {
         const back = b.group(`r${i}-back`, i, "motif");
         const hw = (segAngle / 2) * rng.range(0.85, 0.98);
         const id = b.shape(g.petal(r0, r1, hw, rng.next(), rng.range(0, 0.3)));
-        b.repeat(id, back, ring.offset ? 0 : (segAngle / 2) * (180 / Math.PI));
-        ring.r1 = r0 + (r1 - r0) * rng.range(0.8, 0.9);
+        b.repeat(id, back, offset ? 0 : (segAngle / 2) * (180 / Math.PI));
+        motifR1 = r0 + (r1 - r0) * rng.range(0.8, 0.9);
       }
     } else {
       const alternate = symmetry % 2 === 0 && rng.chance(0.3);
@@ -344,6 +339,16 @@ export function generateMandala(date: string, seed: string = DEFAULT_SEED): Mand
       b.repeat(id, baseA, 0, (k) => (k % 2 === 0 ? baseA : baseB));
     }
 
+    // Only offer motifs that fit the space and differ from the previous ring.
+    const slotHalf = segAngle / perSegment / 2;
+    const fits = (k: MotifKind) =>
+      k !== prevMotif &&
+      // Rays look thin and lost in narrow bands.
+      !(k === "rays" && motifR1 - r0 < 40) &&
+      !(k === "scallop" && g.scallop(r0, motifR1, slotHalf) === null);
+    const kind = rng.weighted((rim ? RIM_MOTIFS : MOTIFS).filter(([k]) => fits(k)));
+
+    const ring: RingSpec = { index: i, r0, r1: motifR1, motif: kind, perSegment, offset, rim };
     ring.motif = drawMotif(b, rng, ring, kind, segAngle);
     ring.r1 = r1;
     rings.push(ring);

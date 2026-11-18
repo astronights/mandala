@@ -1,0 +1,47 @@
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  padding: 3px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--surface);
+}
+
+.segmented button {
+  min-width: 36px;
+  border: 0;
+  background: transparent;
+  padding: 6px 13px;
+  border-radius: 999px;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition:
+    background-color 300ms ease,
+    color 300ms ease;
+}
+
+.segmented button[aria-pressed="true"] {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 1px 2px var(--hairline);
+}
+
+.textButton {
+  border: 0;
+  background: none;
+  padding: 6px 4px;
+  color: var(--muted);
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 300ms ease;
+}
+
+.textButton:hover:not(:disabled) {
+  color: var(--ink);
+}
+
+.textButton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}

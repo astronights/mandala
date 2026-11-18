@@ -20,12 +20,9 @@ export function pt(r: number, theta: number): string {
 /** Annular sector between radii r0..r1 and angles -half..half. */
 export function annularSector(r0: number, r1: number, half: number): string {
   if (r0 <= 0.01) {
-    return [
-      `M 0 0`,
-      `L ${pt(r1, -half)}`,
-      `A ${r2(r1)} ${r2(r1)} 0 0 1 ${pt(r1, half)}`,
-      `Z`,
-    ].join(" ");
+    return [`M 0 0`, `L ${pt(r1, -half)}`, `A ${r2(r1)} ${r2(r1)} 0 0 1 ${pt(r1, half)}`, `Z`].join(
+      " ",
+    );
   }
   const large = half * 2 > Math.PI ? 1 : 0;
   return [
