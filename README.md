@@ -38,8 +38,53 @@ npm run build && npm run e2e   # Playwright against the production build
 CI (`.github/workflows/ci.yml`) runs all of the above on every push to `main`
 and on pull requests.
 
+## Database (Neon)
+
+Colouring stays on the device. The database holds only **anonymous activity**
+for the admin page: a random per-device UUID and one row per device, day and
+mode (time spent, progress, symmetry setting, finished or not). There are no
+accounts, emails, IPs or user agents.
+
+| Object                | What it is                                                 |
+| --------------------- | ---------------------------------------------------------- |
+| `devices`             | Anonymous install ID, first and last seen                  |
+| `plays`               | One row per device per day per mode, upserted as they play |
+| `daily_activity` view | Players, finishers, average time and progress per day      |
+| `symmetry_usage` view | How often each lines-of-symmetry setting is used           |
+| `schema_migrations`   | Applied migrations and their checksums (managed)           |
+
+### Migrations
+
+Plain SQL files in `db/migrations/`, named `NNNN_name.sql`, applied in order
+by a small forward-only runner (`db/migrator.ts`):
+
+- each migration runs in a transaction with its bookkeeping row, so a failure
+  rolls back cleanly (start a file with `-- migrate:no-transaction` for things
+  like `CREATE INDEX CONCURRENTLY`);
+- applied files are checksummed, so **never edit an applied migration**:
+  add a new one;
+- an advisory lock prevents two runs migrating at once.
+
+```bash
+cp .env.example .env.local        # add your Neon connection strings
+npm run db:status                 # ✓ applied  · pending  ✗ edited  ? unknown
+npm run db:migrate                # apply pending migrations
+npm run db:new -- add_streaks     # create db/migrations/0002_add_streaks.sql
+```
+
+Migrations use `DATABASE_URL_UNPOOLED` (a direct connection), falling back to
+`DATABASE_URL`. The tests run every migration against an in-memory Postgres
+(PGlite), so no database is needed for `npm test`.
+
+**Production:** add `DATABASE_URL_UNPOOLED` as a GitHub Actions secret. CI
+then migrates the production database after each push to `main`, once the
+checks and end-to-end tests pass. Until the secret exists, that job is
+skipped.
+
 ## Deploy (Vercel)
 
-Import the repo; Vercel detects Next.js. Set the **`ADMIN_PASSWORD`**
-environment variable. Without it, `/admin` returns 404 in production.
+Import the repo; Vercel detects Next.js. Set the production branch to `main`
+and set the **`ADMIN_PASSWORD`** environment variable. Without it, `/admin`
+returns 404 in production. Add the Neon integration (Vercel → Storage) to get
+`DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
 Sign in to `/admin` with any username and that password.
