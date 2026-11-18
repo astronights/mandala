@@ -57,7 +57,7 @@ test("a tap at full symmetry colours many pieces; off colours one", async ({ pag
   expect(await colouredCount(page)).toBe(0);
 
   await symmetry(page).getByRole("button", { name: "No symmetry" }).click();
-  await expect(page.getByText("Colour each piece by hand")).toBeVisible();
+  await expect(page.getByText("One piece at a time")).toBeVisible();
   await target.click();
   expect(await colouredCount(page)).toBe(1);
 });
@@ -91,14 +91,15 @@ test("colouring survives a reload, and so does the symmetry choice", async ({ pa
   );
 });
 
-test("theme choice applies and persists", async ({ page }) => {
+test("theme button cycles and the choice persists", async ({ page }) => {
   const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
-  await page.getByRole("button", { name: "dark" }).click();
+  const theme = page.getByRole("button", { name: /^Theme:/ });
+  await theme.click(); // automatic → light
+  await expect.poll(bg).toBe("rgb(246, 242, 234)");
+  await theme.click(); // light → dark
   await expect.poll(bg).toBe("rgb(21, 23, 27)");
   await page.reload();
   await expect.poll(bg).toBe("rgb(21, 23, 27)");
-  await page.getByRole("button", { name: "light" }).click();
-  await expect.poll(bg).toBe("rgb(246, 242, 234)");
 });
 
 test("fits the screen without horizontal scrolling", async ({ page }) => {

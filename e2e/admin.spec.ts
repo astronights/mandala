@@ -27,7 +27,7 @@ test.describe("admin", () => {
     await expect(page.getByLabel("Passcode")).toHaveAttribute("aria-invalid", "true");
   });
 
-  test("signs in, shows activity and patterns, and signs out", async ({ page }) => {
+  test("signs in once, then shows activity and patterns", async ({ page }) => {
     await signIn(page);
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByRole("button", { name: "Activity" })).toHaveAttribute(
@@ -45,17 +45,14 @@ test.describe("admin", () => {
     // Signed in: the passcode screen is skipped.
     await page.goto("/admin/login");
     await expect(page).toHaveURL(/\/admin$/);
-
-    await page.getByRole("button", { name: "Sign out" }).click();
-    await expect(page).toHaveURL(/\/admin\/login/);
-    await page.goto("/admin");
-    await expect(page).toHaveURL(/\/admin\/login/);
   });
 
   test("the session cookie is HTTP-only and strict", async ({ page, context }) => {
     await signIn(page);
     const cookie = (await context.cookies()).find((c) => c.name === "mandala_admin");
     expect(cookie).toMatchObject({ httpOnly: true, sameSite: "Strict" });
+    // Stays signed in for about a year; there's no sign-out.
+    expect(cookie!.expires * 1000 - Date.now()).toBeGreaterThan(360 * 86_400_000);
   });
 
   test("is excluded from search engines", async ({ page }) => {

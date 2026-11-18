@@ -7,6 +7,7 @@ import {
   symmetryAxes,
   symmetryOptions,
   SYMMETRY_OFF,
+  VIEW_RADIUS,
   type Mandala,
 } from "@/lib/mandala";
 import { colouringReducer, initialColouring, progress, type Fills } from "@/lib/colouring";
@@ -18,6 +19,7 @@ import {
 } from "@/lib/storage/progress";
 import { PlayTracker } from "@/lib/activity/tracker";
 import { MandalaSvg } from "./MandalaSvg";
+import { ZoomPan } from "./ZoomPan";
 import controls from "./controls.module.css";
 import styles from "./ColouringBoard.module.css";
 
@@ -33,9 +35,9 @@ interface Props {
 }
 
 export function symmetryHint(k: number, n: number): string {
-  if (k === SYMMETRY_OFF) return "Colour each piece by hand";
-  if (k === n) return "Every matching piece fills at once";
-  return `Mirrored across ${k} line${k === 1 ? "" : "s"}`;
+  if (k === SYMMETRY_OFF) return "One piece at a time";
+  if (k === n) return "All matching pieces";
+  return `${k} mirror line${k === 1 ? "" : "s"}`;
 }
 
 export function ColouringBoard({ mandala, persist = true, track = persist }: Props) {
@@ -143,99 +145,107 @@ export function ColouringBoard({ mandala, persist = true, track = persist }: Pro
   return (
     <div className={styles.board}>
       <div className={styles.art}>
-        <MandalaSvg
-          mandala={mandala}
-          regionFills={regionFills}
-          onRegionTap={onRegionTap}
-          guides={symmetryAxes(lines)}
-          guidesVisible={guidesVisible}
-          className={styles.svg}
-          title="Today's mandala. Tap a piece to colour it."
-        />
+        <ZoomPan radius={VIEW_RADIUS}>
+          <MandalaSvg
+            mandala={mandala}
+            regionFills={regionFills}
+            onRegionTap={onRegionTap}
+            guides={symmetryAxes(lines)}
+            guidesVisible={guidesVisible}
+            className={styles.svg}
+            strokeWidth={1}
+            nonScalingStroke
+            title="Today's mandala. Tap a piece to colour it, pinch to zoom."
+          />
+        </ZoomPan>
       </div>
 
-      <div className={styles.palette} role="radiogroup" aria-label="Colour">
-        {mandala.palette.colours.map((c, i) => (
+      <div className={styles.dock}>
+        <div className={styles.palette} role="radiogroup" aria-label="Colour">
+          {mandala.palette.colours.map((c, i) => (
+            <button
+              key={i}
+              type="button"
+              role="radio"
+              aria-checked={colour === i}
+              aria-label={`Colour ${i + 1}`}
+              className={styles.swatch}
+              style={{ background: c.css }}
+              onClick={() => setColour(i)}
+            />
+          ))}
           <button
-            key={i}
             type="button"
             role="radio"
-            aria-checked={colour === i}
-            aria-label={`Colour ${i + 1}`}
-            className={styles.swatch}
-            style={{ background: c.css }}
-            onClick={() => setColour(i)}
+            aria-checked={colour === null}
+            aria-label="Eraser"
+            className={`${styles.swatch} ${styles.eraser}`}
+            onClick={() => setColour(null)}
           />
-        ))}
-        <button
-          type="button"
-          role="radio"
-          aria-checked={colour === null}
-          aria-label="Eraser"
-          className={`${styles.swatch} ${styles.eraser}`}
-          onClick={() => setColour(null)}
-        />
-      </div>
-
-      <div className={styles.symmetry}>
-        <span className={styles.label} id="symmetry-label">
-          Lines of symmetry
-        </span>
-        <div className={controls.segmented} role="group" aria-labelledby="symmetry-label">
-          {options.map((k) => (
-            <button
-              key={k}
-              type="button"
-              aria-pressed={lines === k}
-              aria-label={k === SYMMETRY_OFF ? "No symmetry" : `${k} line${k === 1 ? "" : "s"}`}
-              onClick={() => chooseLines(k)}
-            >
-              {k === SYMMETRY_OFF ? "off" : k}
-            </button>
-          ))}
         </div>
-        <span className={styles.hint} aria-live="polite">
-          {symmetryHint(lines, n)}
-        </span>
-      </div>
 
-      <div className={styles.actions}>
-        <button
-          type="button"
-          className={controls.textButton}
-          disabled={state.past.length === 0}
-          onClick={() => {
-            dispatch({ type: "undo" });
-            interacted();
-          }}
-        >
-          Undo
-        </button>
-        <button
-          type="button"
-          className={controls.textButton}
-          disabled={state.future.length === 0}
-          onClick={() => {
-            dispatch({ type: "redo" });
-            interacted();
-          }}
-        >
-          Redo
-        </button>
-        <button
-          type="button"
-          className={controls.textButton}
-          disabled={Object.keys(state.fills).length === 0}
-          onClick={() => {
-            dispatch({ type: "clear" });
-            interacted();
-          }}
-        >
-          Clear
-        </button>
-        <span className={styles.progress} data-testid="progress">
-          {pct}% coloured
-        </span>
+        <div className={styles.symmetry}>
+          <div className={styles.symmetryHead}>
+            <span className={styles.label} id="symmetry-label">
+              Lines of symmetry
+            </span>
+            <span className={styles.hint} aria-live="polite">
+              {symmetryHint(lines, n)}
+            </span>
+          </div>
+          <div className={controls.segmented} role="group" aria-labelledby="symmetry-label">
+            {options.map((k) => (
+              <button
+                key={k}
+                type="button"
+                aria-pressed={lines === k}
+                aria-label={k === SYMMETRY_OFF ? "No symmetry" : `${k} line${k === 1 ? "" : "s"}`}
+                onClick={() => chooseLines(k)}
+              >
+                {k === SYMMETRY_OFF ? "off" : k}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.actions}>
+          <button
+            type="button"
+            className={controls.textButton}
+            disabled={state.past.length === 0}
+            onClick={() => {
+              dispatch({ type: "undo" });
+              interacted();
+            }}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className={controls.textButton}
+            disabled={state.future.length === 0}
+            onClick={() => {
+              dispatch({ type: "redo" });
+              interacted();
+            }}
+          >
+            Redo
+          </button>
+          <button
+            type="button"
+            className={controls.textButton}
+            disabled={Object.keys(state.fills).length === 0}
+            onClick={() => {
+              dispatch({ type: "clear" });
+              interacted();
+            }}
+          >
+            Clear
+          </button>
+          <span className={styles.progress} data-testid="progress">
+            {pct}% coloured
+          </span>
+        </div>
       </div>
     </div>
   );

@@ -17,7 +17,8 @@
     "check": "npm run lint && npm run typecheck && npm run format:check && npm run test:coverage",
     "db:migrate": "node --env-file-if-exists=.env.local scripts/db.ts migrate",
     "db:status": "node --env-file-if-exists=.env.local scripts/db.ts status",
-    "db:new": "node scripts/db.ts new"
+    "db:new": "node scripts/db.ts new",
+    "icons": "rolldown scripts/make-icons.ts --platform node --format esm --file .icons.tmp.mjs --external playwright && node .icons.tmp.mjs; status=$?; node -e \"require('fs').unlinkSync('.icons.tmp.mjs')\"; exit $status"
   },
   "dependencies": {
     "@neondatabase/serverless": "^1.2.1",

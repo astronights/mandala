@@ -15,6 +15,8 @@ interface Props {
   className?: string;
   title?: string;
   strokeWidth?: number;
+  /** Keep lines the same on-screen width at any zoom (strokeWidth is then in px). */
+  nonScalingStroke?: boolean;
 }
 
 function MandalaSvgImpl({
@@ -27,7 +29,9 @@ function MandalaSvgImpl({
   className,
   title,
   strokeWidth = 1.4,
+  nonScalingStroke = false,
 }: Props) {
+  const vectorEffect = nonScalingStroke ? "non-scaling-stroke" : undefined;
   const shapeD = useMemo(() => new Map(mandala.shapes.map((s) => [s.id, s.d])), [mandala.shapes]);
   // Full previews use crisp "stained glass" lines. A board in progress mixes
   // paper and colour, so it uses a line tone that reads on both.
@@ -70,6 +74,7 @@ function MandalaSvgImpl({
             d={shapeD.get(r.shape)}
             transform={r.rotate ? `rotate(${r.rotate})` : undefined}
             fill={regionFills?.[i] ?? fills?.[r.group] ?? "var(--paper)"}
+            vectorEffect={vectorEffect}
             data-index={i}
             data-group={r.group}
             style={{ transition: "fill 500ms ease" }}
@@ -87,7 +92,15 @@ function MandalaSvgImpl({
           style={{ opacity: guidesVisible ? 1 : 0, transition: "opacity 900ms ease" }}
         >
           {guides.map((deg) => (
-            <line key={deg} x1={-v} y1={0} x2={v} y2={0} transform={`rotate(${deg})`} />
+            <line
+              key={deg}
+              x1={-v}
+              y1={0}
+              x2={v}
+              y2={0}
+              transform={`rotate(${deg})`}
+              vectorEffect={vectorEffect}
+            />
           ))}
         </g>
       )}

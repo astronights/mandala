@@ -18,15 +18,13 @@ const openPatterns = async (user: ReturnType<typeof userEvent.setup>) => {
 };
 
 describe("AdminClient", () => {
-  it("opens on activity, with a sign-out button", async () => {
+  it("opens on activity", async () => {
     render(<AdminClient />);
     expect(await screen.findByRole("button", { name: "Activity" })).toHaveAttribute(
       "aria-pressed",
       "true",
     );
     expect(await screen.findByText("No database is connected yet.")).toBeInTheDocument();
-    const signOut = screen.getByRole("button", { name: "Sign out" });
-    expect(signOut.closest("form")).toHaveAttribute("action", "/api/admin/logout");
   });
 
   it("shows today plus past and upcoming days, and navigates between them", async () => {

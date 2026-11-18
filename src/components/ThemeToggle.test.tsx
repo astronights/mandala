@@ -8,26 +8,32 @@ afterEach(() => {
   delete document.documentElement.dataset.theme;
 });
 
+const button = () => screen.getByRole("button", { name: /^Theme:/ });
+
 describe("ThemeToggle", () => {
-  it("defaults to auto", () => {
+  it("is a single button that starts on automatic", () => {
     render(<ThemeToggle />);
-    expect(screen.getByRole("button", { name: "auto" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getAllByRole("button")).toHaveLength(1);
+    expect(button()).toHaveAccessibleName("Theme: automatic. Switch to light.");
   });
 
-  it("applies and remembers a chosen theme, and auto clears it", async () => {
+  it("cycles automatic → light → dark → automatic, remembering the choice", async () => {
     const user = userEvent.setup();
     render(<ThemeToggle />);
-    await user.click(screen.getByRole("button", { name: "dark" }));
+    await user.click(button());
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(localStorage.getItem("theme")).toBe("light");
+    await user.click(button());
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(localStorage.getItem("theme")).toBe("dark");
-    await user.click(screen.getByRole("button", { name: "auto" }));
+    expect(button()).toHaveAccessibleName("Theme: dark. Switch to automatic.");
+    await user.click(button());
     expect(document.documentElement.dataset.theme).toBeUndefined();
     expect(localStorage.getItem("theme")).toBeNull();
   });
 
   it("picks up a theme already applied before hydration", () => {
-    document.documentElement.dataset.theme = "light";
+    document.documentElement.dataset.theme = "dark";
     render(<ThemeToggle />);
-    expect(screen.getByRole("button", { name: "light" })).toHaveAttribute("aria-pressed", "true");
+    expect(button()).toHaveAccessibleName("Theme: dark. Switch to automatic.");
   });
 });

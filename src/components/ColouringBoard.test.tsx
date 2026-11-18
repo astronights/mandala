@@ -56,7 +56,7 @@ describe("ColouringBoard", () => {
     const user = userEvent.setup();
     const { container } = render(<ColouringBoard mandala={mandala} persist={false} />);
     await user.click(within(symmetryGroup()).getByRole("button", { name: "No symmetry" }));
-    expect(screen.getByText("Colour each piece by hand")).toBeInTheDocument();
+    expect(screen.getByText("One piece at a time")).toBeInTheDocument();
     await user.click(piece(container, target));
     expect(filledWith(container, colour(0))).toHaveLength(1);
 
@@ -179,9 +179,9 @@ describe("ColouringBoard tracking", () => {
 
 describe("symmetryHint", () => {
   it("describes each level", () => {
-    expect(symmetryHint(0, 12)).toBe("Colour each piece by hand");
-    expect(symmetryHint(1, 12)).toBe("Mirrored across 1 line");
-    expect(symmetryHint(4, 12)).toBe("Mirrored across 4 lines");
-    expect(symmetryHint(12, 12)).toBe("Every matching piece fills at once");
+    expect(symmetryHint(0, 12)).toBe("One piece at a time");
+    expect(symmetryHint(1, 12)).toBe("1 mirror line");
+    expect(symmetryHint(4, 12)).toBe("4 mirror lines");
+    expect(symmetryHint(12, 12)).toBe("All matching pieces");
   });
 });

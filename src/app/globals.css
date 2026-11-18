@@ -59,6 +59,9 @@
 html,
 body {
   margin: 0;
+  /* No double-tap zoom delay on buttons; pinch zoom still works. */
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
   background: var(--bg);
   color: var(--ink);
   font-family: var(--sans);
@@ -72,6 +75,7 @@ button,
 input {
   font: inherit;
   color: inherit;
+  -webkit-tap-highlight-color: transparent;
 }
 
 :focus-visible {

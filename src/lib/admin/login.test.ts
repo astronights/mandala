@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { SESSION_COOKIE, verifySessionToken, type AdminMode } from "./auth";
 import { MAX_FAILURES, memoryFailureStore } from "./lockout";
-import { handleLogin, handleLogout } from "./login";
+import { handleLogin } from "./login";
 
 const mode: AdminMode = { kind: "protected", passcode: "lotus", secret: "sec" };
 const NOW = new Date("2026-11-18T12:00:00Z");
@@ -86,14 +86,5 @@ describe("handleLogin", () => {
     expect((await handleLogin(login({}), { mode: { kind: "disabled" } })).status).toBe(404);
     const open = await handleLogin(login({}), { mode: { kind: "open" } });
     expect(open.headers.get("location")).toBe("https://mandala.example/admin");
-  });
-});
-
-describe("handleLogout", () => {
-  it("clears the cookie and returns to the passcode screen", () => {
-    const res = handleLogout(new Request("https://mandala.example/api/admin/logout"), true);
-    expect(res.status).toBe(303);
-    expect(res.headers.get("location")).toBe("https://mandala.example/admin/login");
-    expect(res.headers.get("set-cookie")).toMatch(new RegExp(`^${SESSION_COOKIE}=; .*Max-Age=0`));
   });
 });

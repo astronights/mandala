@@ -95,11 +95,6 @@ export default function AdminClient() {
         </div>
         <div className={styles.headerActions}>
           <ThemeToggle />
-          <form method="post" action="/api/admin/logout">
-            <button type="submit" className={controls.textButton}>
-              Sign out
-            </button>
-          </form>
         </div>
       </header>
 

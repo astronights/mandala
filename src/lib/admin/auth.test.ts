@@ -15,14 +15,11 @@ const SECRET = "s3cret";
 const NOW = Date.UTC(2026, 10, 18, 12);
 
 describe("adminMode", () => {
-  it("is protected when a passcode is set, deriving a secret if none is given", () => {
+  it("is protected when a passcode is set, signing sessions with it", () => {
     expect(adminMode({ ADMIN_PASSWORD: "pw" })).toEqual({
       kind: "protected",
       passcode: "pw",
       secret: "passcode:pw",
-    });
-    expect(adminMode({ ADMIN_PASSWORD: "pw", ADMIN_SESSION_SECRET: "x" })).toMatchObject({
-      secret: "x",
     });
   });
 

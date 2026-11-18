@@ -27,7 +27,6 @@ describe("proxy", () => {
     const setup = () => {
       vi.stubEnv("NODE_ENV", "production");
       vi.stubEnv("ADMIN_PASSWORD", "lotus");
-      vi.stubEnv("ADMIN_SESSION_SECRET", "");
     };
     const cookie = async () => `${SESSION_COOKIE}=${await createSessionToken("passcode:lotus")}`;
 

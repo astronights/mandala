@@ -1,15 +1,18 @@
 # Mandala
 
-A calm daily mandala to colour. Everyone gets the same mandala each day
-(like Wordle), and all progress stays on the device: there is no database.
+A calm daily mandala to colour, made for phones. Like Wordle, everyone gets
+the same one each day, but it's a ritual, not a puzzle: no score, no wrong
+answers. Colouring stays on your device. It can be added to the home screen.
 
-- `/`: today's mandala, and nothing else. Tap pieces to colour them. Choose how
-  many **lines of symmetry** help you: `off` colours one piece by hand, and the
-  maximum fills every matching piece at once.
+- `/`: today's mandala, and nothing else. Tap pieces to colour them, pinch to
+  zoom in on small pieces, drag to move around. Choose how many **lines of
+  symmetry** help you: `off` colours one piece at a time, and the maximum fills
+  every matching piece at once.
 - `/admin`: **Activity** (players, finishers, time, symmetry use, completion by
   pattern) and **Patterns** (past and upcoming days, seed explorer). Behind a
-  passcode screen (`ADMIN_PASSWORD`), with a signed 30-day session cookie and a
-  15-minute lockout after 5 wrong attempts.
+  passcode screen: set `ADMIN_PASSWORD` in Vercel, enter it once, and that
+  device stays signed in for a year. Changing the passcode signs every device
+  out. Five wrong attempts lock sign-in for 15 minutes.
 
 ## How the pattern works
 
@@ -34,7 +37,8 @@ npm run dev            # http://localhost:3000 and /admin (open in dev)
 npm test               # unit and component tests (Vitest)
 npm run test:coverage
 npm run lint && npm run typecheck && npm run format:check
-npm run build && npm run e2e   # Playwright against the production build
+npm run build && npm run e2e   # Playwright against the production build (desktop + phone)
+npm run icons          # re-render the home-screen icons from the generator
 ```
 
 CI (`.github/workflows/ci.yml`) runs all of the above on every push to `main`

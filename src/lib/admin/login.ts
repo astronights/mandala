@@ -82,8 +82,3 @@ export async function handleLogin(request: Request, deps: LoginDeps = {}): Promi
   const token = await createSessionToken(mode.secret, now().getTime());
   return redirect(request, next, sessionCookie(token, SESSION_TTL_SECONDS, secure));
 }
-
-/** POST /api/admin/logout. */
-export function handleLogout(request: Request, secure = process.env.NODE_ENV === "production") {
-  return redirect(request, "/admin/login", sessionCookie("", 0, secure));
-}

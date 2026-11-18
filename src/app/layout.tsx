@@ -4,9 +4,20 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Mandala",
   description: "A calm daily mandala to colour and draw.",
+  appleWebApp: { capable: true, title: "Mandala", statusBarStyle: "default" },
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon-192.png", sizes: "192x192" },
+    ],
+    apple: [{ url: "/apple-icon.png", sizes: "180x180" }],
+  },
 };
 
 export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
   themeColor: [
     { media: "(prefers-color-scheme: light)", color: "#f6f2ea" },
     { media: "(prefers-color-scheme: dark)", color: "#15171b" },

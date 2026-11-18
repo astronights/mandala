@@ -1,10 +1,12 @@
 /**
- * Admin access: a single passcode (ADMIN_PASSWORD) exchanged for a signed,
- * HTTP-only session cookie. Uses Web Crypto, so it runs in the proxy too.
+ * Admin access: one passcode (ADMIN_PASSWORD, set in Vercel) exchanged for a
+ * signed, HTTP-only cookie that keeps this device signed in for a year. The
+ * signature is derived from the passcode, so changing ADMIN_PASSWORD signs
+ * every device out. Uses Web Crypto, so it runs in the proxy too.
  */
 
 export const SESSION_COOKIE = "mandala_admin";
-export const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60;
+export const SESSION_TTL_SECONDS = 365 * 24 * 60 * 60;
 const TOKEN_VERSION = "v1";
 
 export type AdminMode =
@@ -18,13 +20,7 @@ export type AdminMode =
 export function adminMode(env: Record<string, string | undefined> = process.env): AdminMode {
   const passcode = env.ADMIN_PASSWORD;
   if (passcode) {
-    // A separate secret lets you rotate sessions without changing the passcode.
-    // Otherwise derive one from the passcode: changing it signs everyone out.
-    return {
-      kind: "protected",
-      passcode,
-      secret: env.ADMIN_SESSION_SECRET || `passcode:${passcode}`,
-    };
+    return { kind: "protected", passcode, secret: `passcode:${passcode}` };
   }
   return env.NODE_ENV === "production" ? { kind: "disabled" } : { kind: "open" };
 }
