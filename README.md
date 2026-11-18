@@ -6,8 +6,10 @@ A calm daily mandala to colour. Everyone gets the same mandala each day
 - `/`: today's mandala, and nothing else. Tap pieces to colour them. Choose how
   many **lines of symmetry** help you: `off` colours one piece by hand, and the
   maximum fills every matching piece at once.
-- `/admin`: pattern explorer with past and upcoming days and seeds. It is
-  protected by `ADMIN_PASSWORD`.
+- `/admin`: **Activity** (players, finishers, time, symmetry use, completion by
+  pattern) and **Patterns** (past and upcoming days, seed explorer). Behind a
+  passcode screen (`ADMIN_PASSWORD`), with a signed 30-day session cookie and a
+  15-minute lockout after 5 wrong attempts.
 
 ## How the pattern works
 
@@ -38,6 +40,16 @@ npm run build && npm run e2e   # Playwright against the production build
 CI (`.github/workflows/ci.yml`) runs all of the above on every push to `main`
 and on pull requests.
 
+## Activity tracking
+
+As someone colours, the app sends `/api/play` an anonymous report: a random
+device ID, today's date, the mode, time spent (gaps over 30 s don't count),
+how much is coloured, the symmetry setting and whether it's finished. Reports
+are batched (every 20 s at most, plus when the page is hidden) and never block
+play. Nothing is sent for just opening the page, or at all when the browser
+signals Global Privacy Control or Do Not Track. Without a database, the
+endpoint accepts reports and drops them.
+
 ## Database (Neon)
 
 Colouring stays on the device. The database holds only **anonymous activity**
@@ -45,13 +57,22 @@ for the admin page: a random per-device UUID and one row per device, day and
 mode (time spent, progress, symmetry setting, finished or not). There are no
 accounts, emails, IPs or user agents.
 
-| Object                | What it is                                                 |
-| --------------------- | ---------------------------------------------------------- |
-| `devices`             | Anonymous install ID, first and last seen                  |
-| `plays`               | One row per device per day per mode, upserted as they play |
-| `daily_activity` view | Players, finishers, average time and progress per day      |
-| `symmetry_usage` view | How often each lines-of-symmetry setting is used           |
-| `schema_migrations`   | Applied migrations and their checksums (managed)           |
+| Object                 | What it is                                                 |
+| ---------------------- | ---------------------------------------------------------- |
+| `devices`              | Anonymous install ID, first and last seen                  |
+| `plays`                | One row per device per day per mode, upserted as they play |
+| `daily_activity` view  | Players, finishers, average time and progress per day      |
+| `symmetry_usage` view  | How often each lines-of-symmetry setting is used           |
+| `daily_mandalas`       | Each day's seed, generator version and pattern summary     |
+| `daily_overview` view  | Each day's pattern alongside its activity                  |
+| `admin_login_failures` | Timestamps of wrong passcodes, for the lockout             |
+| `schema_migrations`    | Applied migrations and their checksums (managed)           |
+
+`daily_mandalas` is filled by the first play of each day and by a daily
+Vercel Cron job (`vercel.json` → `/api/cron/record-day`, which needs
+`CRON_SECRET`), so days nobody played are recorded too. It also has
+`override_seed` and `override_note` columns, reserved for curating a day
+later; the app doesn't read them yet.
 
 ### Migrations
 
@@ -86,5 +107,6 @@ skipped.
 Import the repo; Vercel detects Next.js. Set the production branch to `main`
 and set the **`ADMIN_PASSWORD`** environment variable. Without it, `/admin`
 returns 404 in production. Add the Neon integration (Vercel → Storage) to get
-`DATABASE_URL` and `DATABASE_URL_UNPOOLED`.
+`DATABASE_URL` and `DATABASE_URL_UNPOOLED`, and set `CRON_SECRET` for the daily
+job. See `.env.example` for every variable.
 Sign in to `/admin` with any username and that password.

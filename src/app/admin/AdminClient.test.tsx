@@ -1,18 +1,40 @@
 // @vitest-environment jsdom
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { formatLong } from "@/lib/mandala";
 import AdminClient from "./AdminClient";
 
-afterEach(() => vi.useRealTimers());
+beforeEach(() => {
+  vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({ configured: false }));
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
+
+const openPatterns = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(await screen.findByRole("button", { name: "Patterns" }));
+};
 
 describe("AdminClient", () => {
+  it("opens on activity, with a sign-out button", async () => {
+    render(<AdminClient />);
+    expect(await screen.findByRole("button", { name: "Activity" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(await screen.findByText("No database is connected yet.")).toBeInTheDocument();
+    const signOut = screen.getByRole("button", { name: "Sign out" });
+    expect(signOut.closest("form")).toHaveAttribute("action", "/api/admin/logout");
+  });
+
   it("shows today plus past and upcoming days, and navigates between them", async () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 10, 18, 12, 0));
     const user = userEvent.setup();
     const { container } = render(<AdminClient />);
+    await openPatterns(user);
 
     expect(await screen.findByTestId("admin-date")).toHaveTextContent(formatLong("2026-11-18"));
     expect(screen.getByText("live today")).toBeInTheDocument();
@@ -34,6 +56,7 @@ describe("AdminClient", () => {
     vi.setSystemTime(new Date(2026, 10, 18, 12, 0));
     const user = userEvent.setup();
     const { container } = render(<AdminClient />);
+    await openPatterns(user);
     await screen.findByTestId("admin-date");
     const firstPath = () => container.querySelector("path[data-index='0']")!.getAttribute("d");
     const before = firstPath();

@@ -134,3 +134,60 @@ describe("schema: activity views", () => {
     expect(rows).toEqual([{ symmetry_lines: 0, plays: 2 }]);
   });
 });
+
+describe("schema: daily_mandalas", () => {
+  const insert = (over: Record<string, unknown> = {}) => {
+    const row = {
+      play_date: "2026-11-18",
+      mandala_version: 1,
+      seed: "mandala",
+      symmetry: 12,
+      ring_count: 2,
+      motifs: ["centre", "petal"],
+      piece_count: 100,
+      group_count: 10,
+      palette_scheme: "analogous",
+      palette: ["oklch(0.8 0.05 10)"],
+      override_seed: null,
+      override_note: null,
+      ...over,
+    };
+    const cols = Object.keys(row);
+    const values = cols.map((_, i) => `$${i + 1}`).join(", ");
+    return db.query(
+      `insert into daily_mandalas (${cols.join(", ")}) values (${values})`,
+      Object.values(row),
+    );
+  };
+
+  beforeEach(() => db.exec("truncate daily_mandalas"));
+
+  it("stores one row per date, with an optional override", async () => {
+    await insert({ override_seed: "lotus", override_note: "Festival day" });
+    await expect(insert()).rejects.toThrow(/duplicate key/);
+  });
+
+  it.each<[string, Record<string, unknown>]>([
+    ["motifs that don't match the ring count", { motifs: ["centre"] }],
+    ["an empty seed", { seed: "" }],
+    ["an overlong override seed", { override_seed: "x".repeat(65) }],
+    ["an overlong note", { override_note: "x".repeat(501) }],
+    ["an implausible symmetry", { symmetry: 2 }],
+    ["an empty palette", { palette: [] }],
+  ])("rejects %s", async (_, over) => {
+    await expect(insert(over)).rejects.toThrow(/violates check/);
+  });
+
+  it("joins each day's pattern to its activity in daily_overview", async () => {
+    await insert();
+    await play({ device: DEVICE_A, done: true });
+    await play({ device: DEVICE_B, date: "2026-11-19" });
+    const { rows } = await db.query(
+      "select play_date::text as d, symmetry, players, finishers from daily_overview order by 1",
+    );
+    expect(rows).toEqual([
+      { d: "2026-11-18", symmetry: 12, players: 1, finishers: 1 },
+      { d: "2026-11-19", symmetry: null, players: 1, finishers: 0 },
+    ]);
+  });
+});

@@ -16,6 +16,7 @@ import {
   savePreferences,
   saveProgress,
 } from "@/lib/storage/progress";
+import { PlayTracker } from "@/lib/activity/tracker";
 import { MandalaSvg } from "./MandalaSvg";
 import controls from "./controls.module.css";
 import styles from "./ColouringBoard.module.css";
@@ -27,6 +28,8 @@ interface Props {
   mandala: Mandala;
   /** Disable persistence (tests, admin previews). */
   persist?: boolean;
+  /** Report anonymous activity (defaults to `persist`). */
+  track?: boolean;
 }
 
 export function symmetryHint(k: number, n: number): string {
@@ -35,7 +38,7 @@ export function symmetryHint(k: number, n: number): string {
   return `Mirrored across ${k} line${k === 1 ? "" : "s"}`;
 }
 
-export function ColouringBoard({ mandala, persist = true }: Props) {
+export function ColouringBoard({ mandala, persist = true, track = persist }: Props) {
   const n = mandala.symmetry;
   const options = useMemo(() => symmetryOptions(n), [n]);
   const index = useMemo(() => new SymmetryIndex(mandala), [mandala]);
@@ -46,6 +49,28 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
   const [guidesVisible, setGuidesVisible] = useState(false);
   const [loaded, setLoaded] = useState(!persist);
   const guideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tracker = useRef<PlayTracker | null>(null);
+  // Bumped by user actions only, so loading saved work isn't reported as play.
+  const [interactions, setInteractions] = useState(0);
+  const interacted = () => setInteractions((c) => c + 1);
+
+  useEffect(() => {
+    if (!track) return;
+    const t = new PlayTracker({ date: mandala.date, version: mandala.version, mode: "colour" });
+    tracker.current = t;
+    const hide = () => {
+      if (document.visibilityState === "hidden") t.flush({ beacon: true });
+    };
+    const leave = () => t.flush({ beacon: true });
+    document.addEventListener("visibilitychange", hide);
+    window.addEventListener("pagehide", leave);
+    return () => {
+      document.removeEventListener("visibilitychange", hide);
+      window.removeEventListener("pagehide", leave);
+      t.dispose();
+      tracker.current = null;
+    };
+  }, [track, mandala.date, mandala.version]);
 
   // Restore saved work and preferences for this day.
   useEffect(() => {
@@ -71,6 +96,16 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
     if (persist && loaded) saveProgress(mandala.date, state.fills as Record<number, number>);
   }, [persist, loaded, mandala.date, state.fills]);
 
+  useEffect(() => {
+    if (interactions === 0) return;
+    tracker.current?.interact({
+      progress: progress(state.fills, mandala.regions.length),
+      symmetryLines: lines,
+    });
+    // Only user actions should report; fills and lines are read at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [interactions]);
+
   useEffect(
     () => () => {
       if (guideTimer.current) clearTimeout(guideTimer.current);
@@ -80,6 +115,7 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
 
   const chooseLines = (k: number) => {
     setLines(k);
+    interacted();
     if (persist) savePreferences({ symmetry: k === n ? FULL_SYMMETRY : k });
     setGuidesVisible(k > SYMMETRY_OFF);
     if (guideTimer.current) clearTimeout(guideTimer.current);
@@ -87,7 +123,10 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
   };
 
   const onRegionTap = useCallback(
-    (i: number) => dispatch({ type: "paint", indices: index.orbit(i, lines), colour }),
+    (i: number) => {
+      dispatch({ type: "paint", indices: index.orbit(i, lines), colour });
+      setInteractions((c) => c + 1);
+    },
     [index, lines, colour],
   );
 
@@ -165,7 +204,10 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
           type="button"
           className={controls.textButton}
           disabled={state.past.length === 0}
-          onClick={() => dispatch({ type: "undo" })}
+          onClick={() => {
+            dispatch({ type: "undo" });
+            interacted();
+          }}
         >
           Undo
         </button>
@@ -173,7 +215,10 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
           type="button"
           className={controls.textButton}
           disabled={state.future.length === 0}
-          onClick={() => dispatch({ type: "redo" })}
+          onClick={() => {
+            dispatch({ type: "redo" });
+            interacted();
+          }}
         >
           Redo
         </button>
@@ -181,7 +226,10 @@ export function ColouringBoard({ mandala, persist = true }: Props) {
           type="button"
           className={controls.textButton}
           disabled={Object.keys(state.fills).length === 0}
-          onClick={() => dispatch({ type: "clear" })}
+          onClick={() => {
+            dispatch({ type: "clear" });
+            interacted();
+          }}
         >
           Clear
         </button>

@@ -1,49 +1,65 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_PASSWORD } from "../playwright.config";
 
+async function signIn(page: Page, passcode = ADMIN_PASSWORD) {
+  await page.goto("/admin");
+  await expect(page).toHaveURL(/\/admin\/login/);
+  await page.getByLabel("Passcode").fill(passcode);
+  await page.getByRole("button", { name: "Enter" }).click();
+}
+
 test.describe("admin", () => {
-  test("asks for credentials", async ({ request }) => {
-    const res = await request.get("/admin");
+  test("sends visitors to the passcode screen", async ({ page }) => {
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/login\?next=%2Fadmin$/);
+    await expect(page.getByLabel("Passcode")).toBeFocused();
+  });
+
+  test("keeps the activity API closed without a session", async ({ request }) => {
+    const res = await request.get("/api/admin/activity");
     expect(res.status()).toBe(401);
-    expect(res.headers()["www-authenticate"]).toContain("Basic");
   });
 
-  test("rejects a wrong password", async ({ browser, baseURL }) => {
-    const ctx = await browser.newContext({
-      baseURL,
-      httpCredentials: { username: "admin", password: "wrong" },
-    });
-    const res = await (await ctx.newPage()).goto("/admin");
-    expect(res?.status()).toBe(401);
-    await ctx.close();
+  test("rejects a wrong passcode", async ({ page }) => {
+    await signIn(page, "definitely-wrong");
+    await expect(page).toHaveURL(/error=wrong/);
+    await expect(page.locator("#login-error")).toHaveText("That passcode isn't right.");
+    await expect(page.getByLabel("Passcode")).toHaveAttribute("aria-invalid", "true");
   });
 
-  test("shows history and upcoming days with the right password", async ({ browser, baseURL }) => {
-    const ctx = await browser.newContext({
-      baseURL,
-      httpCredentials: { username: "admin", password: ADMIN_PASSWORD },
-    });
-    const page = await ctx.newPage();
-    const res = await page.goto("/admin");
-    expect(res?.status()).toBe(200);
+  test("signs in, shows activity and patterns, and signs out", async ({ page }) => {
+    await signIn(page);
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole("button", { name: "Activity" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    // E2E runs without a database.
+    await expect(page.getByText("No database is connected yet.")).toBeVisible();
+
+    await page.getByRole("button", { name: "Patterns" }).click();
     await expect(page.getByText("live today")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Past days" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Coming up" })).toBeVisible();
     await expect(page.locator("main svg[role=img]")).toHaveCount(21);
 
-    await page.getByRole("button", { name: "Previous day" }).click();
-    await expect(page.getByRole("button", { name: "back to today" })).toBeVisible();
-    await ctx.close();
+    // Signed in: the passcode screen is skipped.
+    await page.goto("/admin/login");
+    await expect(page).toHaveURL(/\/admin$/);
+
+    await page.getByRole("button", { name: "Sign out" }).click();
+    await expect(page).toHaveURL(/\/admin\/login/);
+    await page.goto("/admin");
+    await expect(page).toHaveURL(/\/admin\/login/);
   });
 
-  test("is excluded from search engines", async ({ browser, baseURL }) => {
-    const ctx = await browser.newContext({
-      baseURL,
-      httpCredentials: { username: "admin", password: ADMIN_PASSWORD },
-    });
-    const page = await ctx.newPage();
-    await page.goto("/admin");
+  test("the session cookie is HTTP-only and strict", async ({ page, context }) => {
+    await signIn(page);
+    const cookie = (await context.cookies()).find((c) => c.name === "mandala_admin");
+    expect(cookie).toMatchObject({ httpOnly: true, sameSite: "Strict" });
+  });
+
+  test("is excluded from search engines", async ({ page }) => {
+    await page.goto("/admin/login");
     await expect(page.locator('meta[name="robots"]')).toHaveAttribute("content", /noindex/);
-    await ctx.close();
   });
 });

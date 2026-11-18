@@ -268,7 +268,20 @@ function suggestColouring(rng: Rng, groups: Group[], paletteSize: number): Recor
   return out;
 }
 
-export function generateMandala(date: string, seed: string = DEFAULT_SEED): Mandala {
+/**
+ * Generator versions this code can reproduce. When the algorithm changes,
+ * the old version's code stays so past days still render as they did.
+ */
+export const SUPPORTED_VERSIONS: readonly number[] = [1];
+
+export function generateMandala(
+  date: string,
+  seed: string = DEFAULT_SEED,
+  version: number = MANDALA_VERSION,
+): Mandala {
+  if (!SUPPORTED_VERSIONS.includes(version)) {
+    throw new RangeError(`Unsupported mandala version ${version}`);
+  }
   const rng = createRng(`v${MANDALA_VERSION}|${seed}|${date}`);
 
   const symmetry = rng.weighted<number>([

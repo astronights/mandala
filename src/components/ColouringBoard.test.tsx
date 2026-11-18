@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { generateMandala, SymmetryIndex } from "@/lib/mandala";
@@ -133,6 +133,47 @@ describe("ColouringBoard", () => {
       "aria-pressed",
       "true",
     );
+  });
+});
+
+describe("ColouringBoard tracking", () => {
+  let fetchSpy: MockInstance<typeof fetch>;
+  beforeEach(() => {
+    fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(null, { status: 204 }));
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const reports = () => fetchSpy.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+
+  it("reports nothing for simply opening the page", () => {
+    const { unmount } = render(<ColouringBoard mandala={mandala} />);
+    unmount();
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("reports progress and symmetry when the page is hidden after colouring", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ColouringBoard mandala={mandala} />);
+    await user.click(within(symmetryGroup()).getByRole("button", { name: "2 lines" }));
+    await user.click(piece(container, target));
+    window.dispatchEvent(new Event("pagehide"));
+    expect(reports()).toHaveLength(1);
+    expect(reports()[0]).toMatchObject({
+      date: DATE,
+      mode: "colour",
+      version: mandala.version,
+      symmetryLines: 2,
+      completed: false,
+    });
+    expect(reports()[0].progress).toBeGreaterThan(0);
+  });
+
+  it("does not track when tracking is off", async () => {
+    const user = userEvent.setup();
+    const { container, unmount } = render(<ColouringBoard mandala={mandala} track={false} />);
+    await user.click(piece(container, target));
+    unmount();
+    expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
 

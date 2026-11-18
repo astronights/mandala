@@ -11,10 +11,12 @@ import {
 } from "@/lib/mandala";
 import { MandalaSvg, suggestedFills } from "@/components/MandalaSvg";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { ActivityPanel } from "./ActivityPanel";
 import controls from "@/components/controls.module.css";
 import styles from "./admin.module.css";
 
 type View = "colour" | "line";
+type Tab = "activity" | "patterns";
 
 const HISTORY_DAYS = 10;
 const UPCOMING_DAYS = 10;
@@ -61,6 +63,7 @@ export default function AdminClient() {
   const [date, setDate] = useState<string | null>(null);
   const [seed, setSeed] = useState(DEFAULT_SEED);
   const [view, setView] = useState<View>("colour");
+  const [tab, setTab] = useState<Tab>("activity");
 
   // Dates depend on the viewer's local clock, so resolve them on the client.
   useEffect(() => {
@@ -88,102 +91,132 @@ export default function AdminClient() {
       <header className={styles.header}>
         <div>
           <h1 className={styles.title}>Mandala</h1>
-          <p className={styles.subtitle}>Admin · pattern explorer</p>
+          <p className={styles.subtitle}>Admin</p>
         </div>
-        <ThemeToggle />
+        <div className={styles.headerActions}>
+          <ThemeToggle />
+          <form method="post" action="/api/admin/logout">
+            <button type="submit" className={controls.textButton}>
+              Sign out
+            </button>
+          </form>
+        </div>
       </header>
 
-      <section className={styles.hero}>
-        <div className={styles.heroArt}>
-          <MandalaSvg
-            mandala={hero}
-            fills={view === "colour" ? suggestedFills(hero) : null}
-            className={styles.svg}
-          />
-        </div>
+      <nav className={`${controls.segmented} ${styles.tabs}`} aria-label="Admin sections">
+        <button type="button" aria-pressed={tab === "activity"} onClick={() => setTab("activity")}>
+          Activity
+        </button>
+        <button type="button" aria-pressed={tab === "patterns"} onClick={() => setTab("patterns")}>
+          Patterns
+        </button>
+      </nav>
 
-        <div className={styles.heroInfo}>
-          <div className={styles.dateNav}>
-            <button
-              type="button"
-              aria-label="Previous day"
-              onClick={() => setDate(addDays(date, -1))}
-            >
-              ←
-            </button>
-            <div className={styles.dateLabel}>
-              <span data-testid="admin-date">{formatLong(date)}</span>
-              {date === today ? (
-                <span className={styles.badge}>live today</span>
-              ) : (
-                <button type="button" className={styles.link} onClick={() => setDate(today)}>
-                  back to today
-                </button>
-              )}
+      {tab === "activity" ? (
+        <ActivityPanel today={today} />
+      ) : (
+        <>
+          <section className={styles.hero}>
+            <div className={styles.heroArt}>
+              <MandalaSvg
+                mandala={hero}
+                fills={view === "colour" ? suggestedFills(hero) : null}
+                className={styles.svg}
+              />
             </div>
-            <button type="button" aria-label="Next day" onClick={() => setDate(addDays(date, 1))}>
-              →
-            </button>
-          </div>
 
-          <div className={controls.segmented} role="group" aria-label="View">
-            <button
-              type="button"
-              aria-pressed={view === "colour"}
-              onClick={() => setView("colour")}
-            >
-              coloured
-            </button>
-            <button type="button" aria-pressed={view === "line"} onClick={() => setView("line")}>
-              line art
-            </button>
-          </div>
+            <div className={styles.heroInfo}>
+              <div className={styles.dateNav}>
+                <button
+                  type="button"
+                  aria-label="Previous day"
+                  onClick={() => setDate(addDays(date, -1))}
+                >
+                  ←
+                </button>
+                <div className={styles.dateLabel}>
+                  <span data-testid="admin-date">{formatLong(date)}</span>
+                  {date === today ? (
+                    <span className={styles.badge}>live today</span>
+                  ) : (
+                    <button type="button" className={styles.link} onClick={() => setDate(today)}>
+                      back to today
+                    </button>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  aria-label="Next day"
+                  onClick={() => setDate(addDays(date, 1))}
+                >
+                  →
+                </button>
+              </div>
 
-          <dl className={styles.meta}>
-            <dt>Symmetry</dt>
-            <dd>{hero.symmetry}-fold</dd>
-            <dt>Rings</dt>
-            <dd>{describeRings(hero)}</dd>
-            <dt>Pieces</dt>
-            <dd>
-              {hero.regions.length} pieces · {hero.groups.length} colour groups
-            </dd>
-            <dt>Palette</dt>
-            <dd>
-              <span className={styles.swatches}>
-                {hero.palette.colours.map((c, i) => (
-                  <span
-                    key={i}
-                    className={styles.swatch}
-                    style={{ background: c.css }}
-                    title={c.css}
-                  />
-                ))}
-              </span>
-              <span className={styles.muted}>{hero.palette.scheme}</span>
-            </dd>
-          </dl>
+              <div className={controls.segmented} role="group" aria-label="View">
+                <button
+                  type="button"
+                  aria-pressed={view === "colour"}
+                  onClick={() => setView("colour")}
+                >
+                  coloured
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={view === "line"}
+                  onClick={() => setView("line")}
+                >
+                  line art
+                </button>
+              </div>
 
-          <label className={styles.seed}>
-            <span>Seed</span>
-            <input
-              value={seed}
-              onChange={(e) => setSeed(e.target.value)}
-              spellCheck={false}
-              autoComplete="off"
-            />
-          </label>
-          <p className={styles.note}>
-            Players always get seed “{DEFAULT_SEED}”. Other seeds are for exploring only.
-          </p>
-        </div>
-      </section>
+              <dl className={styles.meta}>
+                <dt>Symmetry</dt>
+                <dd>{hero.symmetry}-fold</dd>
+                <dt>Rings</dt>
+                <dd>{describeRings(hero)}</dd>
+                <dt>Pieces</dt>
+                <dd>
+                  {hero.regions.length} pieces · {hero.groups.length} colour groups
+                </dd>
+                <dt>Palette</dt>
+                <dd>
+                  <span className={styles.swatches}>
+                    {hero.palette.colours.map((c, i) => (
+                      <span
+                        key={i}
+                        className={styles.swatch}
+                        style={{ background: c.css }}
+                        title={c.css}
+                      />
+                    ))}
+                  </span>
+                  <span className={styles.muted}>{hero.palette.scheme}</span>
+                </dd>
+              </dl>
 
-      <h2 className={styles.sectionTitle}>Past days</h2>
-      <DayGrid dates={history} seed={seedKey} view={view} onPick={setDate} />
+              <label className={styles.seed}>
+                <span>Seed</span>
+                <input
+                  value={seed}
+                  onChange={(e) => setSeed(e.target.value)}
+                  spellCheck={false}
+                  autoComplete="off"
+                />
+              </label>
+              <p className={styles.note}>
+                Players always get seed “{DEFAULT_SEED}”. Other seeds are for exploring only.
+              </p>
+            </div>
+          </section>
 
-      <h2 className={styles.sectionTitle}>Coming up</h2>
-      <DayGrid dates={upcoming} seed={seedKey} view={view} onPick={setDate} />
+          <h2 className={styles.sectionTitle}>Past days</h2>
+          <DayGrid dates={history} seed={seedKey} view={view} onPick={setDate} />
+
+          <h2 className={styles.sectionTitle}>Coming up</h2>
+          <DayGrid dates={upcoming} seed={seedKey} view={view} onPick={setDate} />
+        </>
+      )}
     </main>
   );
 }
