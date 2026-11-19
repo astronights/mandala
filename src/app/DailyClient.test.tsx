@@ -12,7 +12,7 @@ describe("DailyClient", () => {
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(new Date(2026, 10, 18, 9, 0));
     const { container } = render(<DailyClient />);
-    expect(await screen.findByTestId("today")).toHaveTextContent("2026");
+    expect(await screen.findByTestId("today")).toHaveTextContent(/18/);
     expect(container.querySelectorAll("svg[role=img]")).toHaveLength(1);
     expect(screen.queryByRole("button", { name: /previous day|next day/i })).toBeNull();
   });
@@ -32,7 +32,7 @@ describe("DailyClient", () => {
   it("starts guided and remembers a switch to free colouring", async () => {
     const user = userEvent.setup();
     const first = render(<DailyClient />);
-    const group = await screen.findByRole("group", { name: "Colouring" });
+    const group = await screen.findByRole("group", { name: "Mode" });
     expect(screen.getByRole("button", { name: "Guided" })).toHaveAttribute("aria-pressed", "true");
     expect(screen.queryByRole("radio", { name: "Eraser" })).toBeNull();
 
@@ -47,5 +47,25 @@ describe("DailyClient", () => {
       "aria-pressed",
       "true",
     );
+  });
+
+  it("offers drawing as a third mode", async () => {
+    const user = userEvent.setup();
+    render(<DailyClient />);
+    await user.click(await screen.findByRole("button", { name: "Draw" }));
+    expect(screen.getByTestId("draw-surface")).toBeInTheDocument();
+    expect(loadPreferences()?.mode).toBe("draw");
+  });
+
+  it("moves to the new day at midnight even if the page stays open", async () => {
+    vi.useFakeTimers({ toFake: ["Date", "setInterval"] });
+    vi.setSystemTime(new Date(2026, 10, 18, 23, 59, 30));
+    render(<DailyClient />);
+    const before = screen.getByTestId("today").textContent;
+    vi.setSystemTime(new Date(2026, 10, 19, 0, 0, 30));
+    act(() => {
+      vi.advanceTimersByTime(60_000);
+    });
+    expect(screen.getByTestId("today").textContent).not.toBe(before);
   });
 });

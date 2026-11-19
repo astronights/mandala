@@ -20,12 +20,18 @@ import {
   targetColours,
 } from "@/lib/guided";
 import {
+  clearDone,
+  loadDone,
   loadPreferences,
   loadProgress,
+  saveDone,
   savePreferences,
   saveProgress,
   type ColourMode,
+  type PlayMode,
 } from "@/lib/storage/progress";
+import { FinishPanel } from "./FinishPanel";
+import { SymmetryPicker } from "./SymmetryPicker";
 import { PlayTracker } from "@/lib/activity/tracker";
 import { MandalaSvg } from "./MandalaSvg";
 import { ZoomPan } from "./ZoomPan";
@@ -35,6 +41,8 @@ import styles from "./ColouringBoard.module.css";
 const FULL_SYMMETRY = 1000; // stored preference meaning "as many lines as the day allows"
 const GUIDE_MS = 1800;
 const NUDGE_MS = 1200;
+/** Pause between rings when the rest of a guided mandala is revealed. */
+const REVEAL_STEP_MS = 160;
 
 interface Props {
   mandala: Mandala;
@@ -44,19 +52,21 @@ interface Props {
   persist?: boolean;
   /** Report anonymous activity (defaults to `persist`). */
   track?: boolean;
+  /** Offered after finishing guided colouring ("Colour it freely"). */
+  onSwitchMode?: (mode: PlayMode) => void;
+  /** Reveal speed; tests pass 0. */
+  revealStepMs?: number;
 }
 
-export function symmetryHint(k: number, n: number): string {
-  if (k === SYMMETRY_OFF) return "One piece at a time";
-  if (k === n) return "All matching pieces";
-  return `${k} mirror line${k === 1 ? "" : "s"}`;
-}
+export { symmetryHint } from "./SymmetryPicker";
 
 export function ColouringBoard({
   mandala,
   mode = "guided",
   persist = true,
   track = persist,
+  onSwitchMode,
+  revealStepMs = REVEAL_STEP_MS,
 }: Props) {
   const guided = mode === "guided";
   const n = mandala.symmetry;
@@ -71,6 +81,9 @@ export function ColouringBoard({
   const [guidesVisible, setGuidesVisible] = useState(false);
   const [nudge, setNudge] = useState<number | null>(null);
   const [loaded, setLoaded] = useState(!persist);
+  const [done, setDone] = useState(false);
+  const [justFinished, setJustFinished] = useState(false);
+  const revealTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
   const guideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const nudgeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tracker = useRef<PlayTracker | null>(null);
@@ -126,6 +139,7 @@ export function ColouringBoard({
     const prefs = loadPreferences();
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setLines(nearestSymmetry(n, prefs ? prefs.symmetry : FULL_SYMMETRY));
+    setDone(!!loadDone(mandala.date, mode));
     setLoaded(true);
   }, [persist, mandala, n, mode, guided, targets, paletteSize]);
 
@@ -144,9 +158,54 @@ export function ColouringBoard({
     () => () => {
       if (guideTimer.current) clearTimeout(guideTimer.current);
       if (nudgeTimer.current) clearTimeout(nudgeTimer.current);
+      revealTimers.current.forEach(clearTimeout);
     },
     [],
   );
+
+  /** Ring of each piece, centre = 0, for the outward reveal. */
+  const ringOf = useMemo(() => {
+    const byGroup = new Map(mandala.groups.map((g) => [g.id, g.ring]));
+    return mandala.regions.map((r) => byGroup.get(r.group) ?? 0);
+  }, [mandala]);
+
+  const finish = () => {
+    if (done) return;
+    // Report what was actually coloured, before any reveal.
+    tracker.current?.interact({ progress: share, symmetryLines: lines, completed: true });
+    if (persist) saveDone(mandala.date, mode);
+    setDone(true);
+    setJustFinished(true);
+    if (!guided || share >= 1) return;
+
+    // Guided: let the rest of the day's design bloom outward, ring by ring.
+    const base = { ...(state.fills as Record<number, number>) };
+    const maxRing = Math.max(...ringOf);
+    for (let ring = 0; ring <= maxRing; ring++) {
+      revealTimers.current.push(
+        setTimeout(() => {
+          const fills = { ...base };
+          ringOf.forEach((r, i) => {
+            if (r <= ring) fills[i] = targets[i];
+          });
+          dispatch({ type: "load", fills });
+        }, ring * revealStepMs),
+      );
+    }
+  };
+
+  const keepColouring = () => {
+    clearDone(mandala.date, mode);
+    setDone(false);
+    setJustFinished(false);
+  };
+
+  // Colouring every piece finishes the day by itself.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (loaded && !done && interactions > 0 && share >= 1) finish();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [share, loaded, done, interactions]);
 
   const chooseLines = (k: number) => {
     setLines(k);
@@ -159,6 +218,7 @@ export function ColouringBoard({
 
   const onRegionTap = useCallback(
     (i: number) => {
+      if (done) return;
       const orbit = index.orbit(i, lines);
       if (!guided) {
         dispatch({ type: "paint", indices: orbit, colour });
@@ -177,7 +237,7 @@ export function ColouringBoard({
         nudgeTimer.current = setTimeout(() => setNudge(null), NUDGE_MS);
       }
     },
-    [index, lines, colour, guided, targets, state.fills],
+    [index, lines, colour, guided, targets, state.fills, done],
   );
 
   const regionFills = useMemo(() => {
@@ -197,7 +257,7 @@ export function ColouringBoard({
 
   return (
     <div className={styles.board}>
-      <div className={styles.art}>
+      <div className={`${styles.art} ${justFinished ? styles.bloom : ""}`}>
         <ZoomPan radius={VIEW_RADIUS}>
           <MandalaSvg
             mandala={mandala}
@@ -213,108 +273,92 @@ export function ColouringBoard({
         </ZoomPan>
       </div>
 
-      <div className={styles.dock}>
-        <div className={styles.palette} role="radiogroup" aria-label="Colour">
-          {mandala.palette.colours.map((c, i) => {
-            const done = guided && remaining[i] === 0;
-            return (
+      {done ? (
+        <div className={styles.dock}>
+          <FinishPanel
+            title="Today’s mandala is complete"
+            actionLabel={
+              guided ? (onSwitchMode ? "Colour it freely" : undefined) : "Keep colouring"
+            }
+            onAction={guided ? () => onSwitchMode?.("free") : keepColouring}
+          />
+        </div>
+      ) : (
+        <div className={styles.dock}>
+          <div className={styles.palette} role="radiogroup" aria-label="Colour">
+            {mandala.palette.colours.map((c, i) => {
+              const done = guided && remaining[i] === 0;
+              return (
+                <button
+                  key={i}
+                  type="button"
+                  role="radio"
+                  aria-checked={colour === i}
+                  aria-label={`Colour ${i + 1}${done ? ", done" : ""}`}
+                  aria-disabled={done || undefined}
+                  className={`${styles.swatch} ${done ? styles.done : ""} ${nudge === i ? styles.nudge : ""}`}
+                  style={{ background: c.css }}
+                  onClick={() => !done && setPicked(i)}
+                >
+                  {done && (
+                    <svg viewBox="0 0 24 24" aria-hidden className={styles.tick}>
+                      <path d="M6 12.5l4 4 8-9" />
+                    </svg>
+                  )}
+                </button>
+              );
+            })}
+            {!guided && (
               <button
-                key={i}
                 type="button"
                 role="radio"
-                aria-checked={colour === i}
-                aria-label={`Colour ${i + 1}${done ? ", done" : ""}`}
-                aria-disabled={done || undefined}
-                className={`${styles.swatch} ${done ? styles.done : ""} ${nudge === i ? styles.nudge : ""}`}
-                style={{ background: c.css }}
-                onClick={() => !done && setPicked(i)}
-              >
-                {done && (
-                  <svg viewBox="0 0 24 24" aria-hidden className={styles.tick}>
-                    <path d="M6 12.5l4 4 8-9" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-          {!guided && (
+                aria-checked={colour === null}
+                aria-label="Eraser"
+                className={`${styles.swatch} ${styles.eraser}`}
+                onClick={() => setPicked(null)}
+              />
+            )}
+          </div>
+          <p className={styles.nudgeText} aria-live="polite">
+            {nudge !== null ? `That piece wants colour ${nudge + 1}` : ""}
+          </p>
+
+          <SymmetryPicker options={options} value={lines} max={n} onChange={chooseLines} />
+
+          <div className={styles.actions}>
             <button
               type="button"
-              role="radio"
-              aria-checked={colour === null}
-              aria-label="Eraser"
-              className={`${styles.swatch} ${styles.eraser}`}
-              onClick={() => setPicked(null)}
-            />
-          )}
-        </div>
-        <p className={styles.nudgeText} aria-live="polite">
-          {nudge !== null ? `That piece wants colour ${nudge + 1}` : ""}
-        </p>
-
-        <div className={styles.symmetry}>
-          <div className={styles.symmetryHead}>
-            <span className={styles.label} id="symmetry-label">
-              Lines of symmetry
+              className={controls.textButton}
+              disabled={state.past.length === 0}
+              onClick={() => {
+                dispatch({ type: "undo" });
+                interacted();
+              }}
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              className={controls.textButton}
+              disabled={Object.keys(state.fills).length === 0}
+              onClick={() => {
+                dispatch({ type: "clear" });
+                interacted();
+              }}
+            >
+              Clear
+            </button>
+            <span className={styles.progress} data-testid="progress">
+              {pct}%
             </span>
-            <span className={styles.hint} aria-live="polite">
-              {symmetryHint(lines, n)}
-            </span>
-          </div>
-          <div className={controls.segmented} role="group" aria-labelledby="symmetry-label">
-            {options.map((k) => (
-              <button
-                key={k}
-                type="button"
-                aria-pressed={lines === k}
-                aria-label={k === SYMMETRY_OFF ? "No symmetry" : `${k} line${k === 1 ? "" : "s"}`}
-                onClick={() => chooseLines(k)}
-              >
-                {k === SYMMETRY_OFF ? "off" : k}
+            {Object.keys(state.fills).length > 0 && (
+              <button type="button" className={styles.doneButton} onClick={finish}>
+                I’m done
               </button>
-            ))}
+            )}
           </div>
         </div>
-
-        <div className={styles.actions}>
-          <button
-            type="button"
-            className={controls.textButton}
-            disabled={state.past.length === 0}
-            onClick={() => {
-              dispatch({ type: "undo" });
-              interacted();
-            }}
-          >
-            Undo
-          </button>
-          <button
-            type="button"
-            className={controls.textButton}
-            disabled={state.future.length === 0}
-            onClick={() => {
-              dispatch({ type: "redo" });
-              interacted();
-            }}
-          >
-            Redo
-          </button>
-          <button
-            type="button"
-            className={controls.textButton}
-            disabled={Object.keys(state.fills).length === 0}
-            onClick={() => {
-              dispatch({ type: "clear" });
-              interacted();
-            }}
-          >
-            Clear
-          </button>
-          <span className={styles.progress} data-testid="progress">
-            {pct}% coloured
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }

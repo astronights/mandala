@@ -8,6 +8,7 @@
 }
 
 .art {
+  position: relative;
   width: 100%;
   max-width: 560px;
   aspect-ratio: 1;
@@ -170,6 +171,46 @@
 .actions button {
   min-height: 40px;
   padding: 0 12px;
+}
+
+.doneButton {
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--paper);
+  color: var(--ink);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* Finishing: the mandala breathes once, with a soft halo behind it. */
+.bloom {
+  animation: bloom 2.4s ease-in-out both;
+}
+
+.bloom::before {
+  content: "";
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, var(--focus), transparent);
+  opacity: 0;
+  animation: halo 2.4s ease-in-out;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@keyframes bloom {
+  45% {
+    transform: scale(1.03) rotate(2deg);
+  }
+}
+
+@keyframes halo {
+  45% {
+    opacity: 0.35;
+  }
 }
 
 .progress {

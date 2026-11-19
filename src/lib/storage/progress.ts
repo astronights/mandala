@@ -1,4 +1,5 @@
-import { readJSON, writeJSON } from "./local";
+import { readJSON, removeKey, writeJSON } from "./local";
+import { isStroke, type Stroke } from "@/lib/draw";
 
 /** Today's colouring, saved as the user goes so a refresh never loses work. */
 
@@ -13,13 +14,16 @@ export interface DayProgress {
 }
 
 export type ColourMode = "guided" | "free";
+/** Everything the day can be played as. */
+export type PlayMode = ColourMode | "draw";
+export const PLAY_MODES: readonly PlayMode[] = ["guided", "free", "draw"];
 
 export interface Preferences {
   v: number;
   /** Preferred lines of symmetry; Infinity-like values mean "full". */
   symmetry: number;
-  /** Guided (the day's colours) or free colouring. */
-  mode?: ColourMode;
+  /** Guided (the day's colours), free colouring, or drawing. */
+  mode?: PlayMode;
 }
 
 /** Each mode keeps its own canvas, so switching never mixes them. */
@@ -43,7 +47,7 @@ export function isPreferences(v: unknown): v is Preferences {
     isRecord(v) &&
     v.v === STORAGE_VERSION &&
     typeof v.symmetry === "number" &&
-    (v.mode === undefined || v.mode === "guided" || v.mode === "free")
+    (v.mode === undefined || PLAY_MODES.includes(v.mode as PlayMode))
   );
 }
 
@@ -74,4 +78,67 @@ export function savePreferences(prefs: Partial<Omit<Preferences, "v">>): boolean
     ...prefs,
     v: STORAGE_VERSION,
   });
+}
+
+/** "I'm done" for a day and mode: shown as finished when the day is reopened. */
+export interface DayDone {
+  v: number;
+  date: string;
+  mode: PlayMode;
+  finishedAt: number;
+}
+
+export const doneKey = (date: string, mode: PlayMode) =>
+  `mandala:v${STORAGE_VERSION}:done:${date}:${mode}`;
+
+export function isDayDone(v: unknown): v is DayDone {
+  return (
+    isRecord(v) &&
+    v.v === STORAGE_VERSION &&
+    typeof v.date === "string" &&
+    PLAY_MODES.includes(v.mode as PlayMode) &&
+    typeof v.finishedAt === "number"
+  );
+}
+
+export function loadDone(date: string, mode: PlayMode): DayDone | null {
+  const d = readJSON(doneKey(date, mode), isDayDone);
+  return d && d.date === date && d.mode === mode ? d : null;
+}
+
+export function saveDone(date: string, mode: PlayMode, finishedAt = Date.now()): boolean {
+  return writeJSON(doneKey(date, mode), { v: STORAGE_VERSION, date, mode, finishedAt });
+}
+
+/** "Keep colouring": the day is open again until finished once more. */
+export function clearDone(date: string, mode: PlayMode): void {
+  removeKey(doneKey(date, mode));
+}
+
+/** Today's drawing. */
+export interface DayDrawing {
+  v: number;
+  date: string;
+  strokes: Stroke[];
+}
+
+export const drawingKey = (date: string) => `mandala:v${STORAGE_VERSION}:draw:${date}`;
+
+export function isDayDrawing(v: unknown): v is DayDrawing {
+  return (
+    isRecord(v) &&
+    v.v === STORAGE_VERSION &&
+    typeof v.date === "string" &&
+    Array.isArray(v.strokes) &&
+    v.strokes.every(isStroke)
+  );
+}
+
+export function loadDrawing(date: string): Stroke[] {
+  const d = readJSON(drawingKey(date), isDayDrawing);
+  return d && d.date === date ? d.strokes : [];
+}
+
+export function saveDrawing(date: string, strokes: Stroke[]): boolean {
+  return writeJSON(drawingKey(date), { v: STORAGE_VERSION, date, strokes });
 }

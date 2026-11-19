@@ -24,3 +24,13 @@ export function formatLong(iso: string): string {
     year: "numeric",
   });
 }
+
+/** "Thu, 19 Nov" style, for the daily header: it's always today, so no year. */
+export function formatDay(iso: string): string {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+  });
+}

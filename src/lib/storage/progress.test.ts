@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  loadDone,
+  saveDone,
   isDayProgress,
   loadPreferences,
   loadProgress,
@@ -97,5 +99,25 @@ describe("modes and merged preferences", () => {
   it("rejects an unknown mode", () => {
     localStorage.setItem(PREFS_KEY, JSON.stringify({ v: STORAGE_VERSION, symmetry: 2, mode: "x" }));
     expect(loadPreferences()).toBeNull();
+  });
+});
+
+describe("finished days", () => {
+  it("remembers 'I'm done' per day and mode", () => {
+    expect(loadDone("2026-11-19", "guided")).toBeNull();
+    saveDone("2026-11-19", "guided", 123);
+    expect(loadDone("2026-11-19", "guided")).toEqual({
+      v: STORAGE_VERSION,
+      date: "2026-11-19",
+      mode: "guided",
+      finishedAt: 123,
+    });
+    expect(loadDone("2026-11-19", "draw")).toBeNull();
+    expect(loadDone("2026-11-20", "guided")).toBeNull();
+  });
+
+  it("accepts draw as a remembered mode", () => {
+    savePreferences({ mode: "draw" });
+    expect(loadPreferences()?.mode).toBe("draw");
   });
 });

@@ -30,9 +30,11 @@ interface Props {
   children: ReactNode;
   /** Half-size of the drawing's coordinate space ([-r, r]²). */
   radius: number;
+  /** Drag with one finger to pan when zoomed. Off in draw mode, where one finger draws. */
+  oneFingerPan?: boolean;
 }
 
-export function ZoomPan({ children, radius }: Props) {
+export function ZoomPan({ children, radius, oneFingerPan = true }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const view = useRef<View>(IDENTITY);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
@@ -102,7 +104,7 @@ export function ZoomPan({ children, radius }: Props) {
     }
 
     if (!g.moved && Math.hypot(p.x - g.startX, p.y - g.startY) > TAP_SLOP_PX) g.moved = true;
-    if (g.moved && isZoomed(view.current)) {
+    if (oneFingerPan && g.moved && isZoomed(view.current)) {
       apply(panBy(view.current, p.x - prev.x, p.y - prev.y, size()));
     }
   };

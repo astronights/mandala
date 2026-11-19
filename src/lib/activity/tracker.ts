@@ -67,7 +67,11 @@ export interface TrackerOptions {
 export interface PlayState {
   progress: number;
   symmetryLines: number | null;
+  /** Finished ("I'm done"), even if not everything is coloured. */
+  completed?: boolean;
 }
+
+const isCompleted = (s: PlayState) => s.completed ?? s.progress >= 1;
 
 export class PlayTracker {
   private activeMs: number;
@@ -103,7 +107,7 @@ export class PlayTracker {
     this.dirty = true;
     writeJSON(activeKey(this.opts.date, this.opts.mode), this.activeSeconds);
 
-    if (state.progress >= 1 && !this.sentCompleted) {
+    if (isCompleted(state) && !this.sentCompleted) {
       this.flush();
     } else if (!this.timer) {
       this.timer = setTimeout(() => this.flush(), FLUSH_DELAY_MS);
@@ -118,7 +122,7 @@ export class PlayTracker {
     }
     if (!this.enabled || !this.dirty) return;
     this.dirty = false;
-    const completed = this.state.progress >= 1;
+    const completed = isCompleted(this.state);
     if (completed) this.sentCompleted = true;
     this.send(
       {

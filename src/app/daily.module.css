@@ -25,9 +25,15 @@
   gap: 2px;
 }
 
+.modes {
+  flex-wrap: nowrap;
+}
+
 .modes button {
   min-height: 36px;
-  padding: 0 12px;
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 13px;
 }
 
 .title {
@@ -40,6 +46,7 @@
 }
 
 .date {
+  white-space: nowrap;
   margin: 2px 0 0;
   color: var(--muted);
   font-size: 13px;
@@ -56,5 +63,19 @@
   }
   .title {
     font-size: 28px;
+  }
+}
+
+/* Small phones (iPhone SE class): keep the header on one line. */
+@media (max-width: 360px) {
+  .header {
+    gap: 6px;
+  }
+  .title {
+    font-size: 20px;
+  }
+  .modes button {
+    padding: 0 8px;
+    font-size: 12px;
   }
 }

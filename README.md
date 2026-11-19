@@ -11,6 +11,11 @@ answers. Colouring stays on your device. It can be added to the home screen.
     colours tick off and the next one is chosen for you.
   - **Free**: any of the day's colours anywhere, with an eraser. It keeps its
     own canvas, so switching never mixes the two.
+  - **Draw**: draw with one finger over the day's pattern, shown faintly as a
+    stencil; every stroke is mirrored by the lines of symmetry.
+  - **Finishing**: "I'm done" (or colouring every piece) completes the day. In
+    guided mode the rest of the design blooms in, ring by ring. Then a quiet
+    countdown shows when tomorrow's mandala arrives.
   - Pinch to zoom in on small pieces, drag to move around. Choose how many
     **lines of symmetry** help you: `off` colours one piece at a time, and the
     maximum fills every matching piece at once.

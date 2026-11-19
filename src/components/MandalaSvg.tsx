@@ -1,4 +1,4 @@
-import { memo, useMemo, type MouseEvent } from "react";
+import { memo, useMemo, type MouseEvent, type ReactNode } from "react";
 import { VIEW_RADIUS, type Mandala } from "@/lib/mandala";
 
 interface Props {
@@ -17,6 +17,10 @@ interface Props {
   strokeWidth?: number;
   /** Keep lines the same on-screen width at any zoom (strokeWidth is then in px). */
   nonScalingStroke?: boolean;
+  /** Show the pattern faintly, as a stencil to draw over. */
+  faint?: boolean;
+  /** Extra SVG content drawn on top, in the same (zoomable) coordinates. */
+  children?: ReactNode;
 }
 
 function MandalaSvgImpl({
@@ -30,6 +34,8 @@ function MandalaSvgImpl({
   title,
   strokeWidth = 1.4,
   nonScalingStroke = false,
+  faint = false,
+  children,
 }: Props) {
   const vectorEffect = nonScalingStroke ? "non-scaling-stroke" : undefined;
   const shapeD = useMemo(() => new Map(mandala.shapes.map((s) => [s.id, s.d])), [mandala.shapes]);
@@ -67,6 +73,7 @@ function MandalaSvgImpl({
         }
         strokeWidth={strokeWidth}
         strokeLinejoin="round"
+        opacity={faint ? 0.32 : undefined}
       >
         {mandala.regions.map((r, i) => (
           <path
@@ -104,6 +111,7 @@ function MandalaSvgImpl({
           ))}
         </g>
       )}
+      {children}
     </svg>
   );
 }

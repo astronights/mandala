@@ -156,3 +156,12 @@ describe("sendReport", () => {
     await Promise.resolve();
   });
 });
+
+describe("PlayTracker completion", () => {
+  it("reports an early 'I'm done' as completed, with the real progress", () => {
+    const t = make();
+    t.interact({ progress: 0.4, symmetryLines: 8, completed: true });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].report).toMatchObject({ progress: 0.4, completed: true });
+  });
+});

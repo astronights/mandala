@@ -1,9 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { generateMandala, SymmetryIndex } from "@/lib/mandala";
-import { loadProgress, savePreferences, saveProgress } from "@/lib/storage/progress";
+import {
+  loadDone,
+  loadProgress,
+  saveDone,
+  savePreferences,
+  saveProgress,
+} from "@/lib/storage/progress";
 import { targetColours } from "@/lib/guided";
 import { ColouringBoard, symmetryHint } from "./ColouringBoard";
 
@@ -29,7 +35,8 @@ describe("ColouringBoard (free)", () => {
     expect(paths(container)).toHaveLength(mandala.regions.length);
     expect(paths(container).every((p) => p.getAttribute("fill") === "var(--paper)")).toBe(true);
     expect(screen.getAllByRole("radio")).toHaveLength(mandala.palette.colours.length + 1);
-    expect(screen.getByTestId("progress")).toHaveTextContent("0% coloured");
+    expect(screen.getByTestId("progress")).toHaveTextContent(/^0%$/);
+    expect(screen.queryByRole("button", { name: "I’m done" })).toBeNull();
   });
 
   it("offers off plus each divisor of the day's symmetry, defaulting to full", () => {
@@ -67,11 +74,10 @@ describe("ColouringBoard (free)", () => {
     expect(filledWith(container, colour(1))).toHaveLength(index.orbit(target, 1).length);
   });
 
-  it("uses the selected colour, erases, and supports undo/redo/clear", async () => {
+  it("uses the selected colour, erases, and supports undo and clear", async () => {
     const user = userEvent.setup();
     const { container } = render(<ColouringBoard mode="free" mandala={mandala} persist={false} />);
     const undo = screen.getByRole("button", { name: "Undo" });
-    const redo = screen.getByRole("button", { name: "Redo" });
     const clear = screen.getByRole("button", { name: "Clear" });
     expect(undo).toBeDisabled();
 
@@ -79,7 +85,7 @@ describe("ColouringBoard (free)", () => {
     await user.click(piece(container, target));
     const n = filledWith(container, colour(2)).length;
     expect(n).toBeGreaterThan(0);
-    expect(screen.getByTestId("progress")).not.toHaveTextContent("0% coloured");
+    expect(screen.getByTestId("progress")).not.toHaveTextContent(/^0%$/);
 
     await user.click(screen.getByRole("radio", { name: "Eraser" }));
     await user.click(piece(container, target));
@@ -87,9 +93,6 @@ describe("ColouringBoard (free)", () => {
 
     await user.click(undo);
     expect(filledWith(container, colour(2))).toHaveLength(n);
-    await user.click(redo);
-    expect(filledWith(container, colour(2))).toHaveLength(0);
-    await user.click(undo);
 
     await user.click(clear);
     expect(filledWith(container, colour(2))).toHaveLength(0);
@@ -243,7 +246,7 @@ describe("ColouringBoard (guided)", () => {
     const expected = Math.round(
       (filledWith(container, colour(first)).length / mandala.regions.length) * 100,
     );
-    expect(screen.getByTestId("progress")).toHaveTextContent(`${expected}% coloured`);
+    expect(screen.getByTestId("progress")).toHaveTextContent(`${expected}%`);
   });
 
   it("keeps its own saved canvas, ignoring colours that don't belong", () => {
@@ -252,6 +255,74 @@ describe("ColouringBoard (guided)", () => {
     const { container } = render(<ColouringBoard mandala={mandala} />);
     expect(piece(container, target).getAttribute("fill")).toBe(colour(first));
     expect(piece(container, 0).getAttribute("fill")).not.toBe(colour(wrong));
+  });
+});
+
+describe("ColouringBoard finishing", () => {
+  const targets = targetColours(mandala);
+  const first = targets[target];
+  const done = () => screen.getByRole("button", { name: "I’m done" });
+
+  it("finishing guided early reveals the rest of the design and shows the countdown", async () => {
+    const user = userEvent.setup();
+    const onSwitchMode = vi.fn();
+    const { container } = render(
+      <ColouringBoard mandala={mandala} revealStepMs={0} onSwitchMode={onSwitchMode} />,
+    );
+    await user.click(screen.getByRole("radio", { name: new RegExp(`^Colour ${first + 1}`) }));
+    await user.click(piece(container, target));
+    await user.click(done());
+
+    expect(await screen.findByText("Today’s mandala is complete")).toBeInTheDocument();
+    expect(screen.getByTestId("countdown").textContent).toMatch(/^(\d+h )?\d+m$|less than/);
+    // The whole design blooms in: every piece ends in its designed colour.
+    await waitFor(() =>
+      paths(container).forEach((p, i) => expect(p.getAttribute("fill")).toBe(colour(targets[i]))),
+    );
+    expect(loadDone(DATE, "guided")).not.toBeNull();
+    // Taps no longer change anything.
+    expect(screen.queryByRole("radiogroup", { name: "Colour" })).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: "Colour it freely" }));
+    expect(onSwitchMode).toHaveBeenCalledWith("free");
+  });
+
+  it("reports an early finish with the real progress", async () => {
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValue(new Response(null, { status: 204 }));
+    const user = userEvent.setup();
+    const { container } = render(<ColouringBoard mandala={mandala} revealStepMs={0} />);
+    await user.click(screen.getByRole("radio", { name: new RegExp(`^Colour ${first + 1}`) }));
+    await user.click(piece(container, target));
+    await user.click(done());
+    const sent = fetchSpy.mock.calls.map(([, init]) => JSON.parse(String(init?.body)));
+    expect(sent.at(-1)).toMatchObject({ mode: "colour", completed: true });
+    expect(sent.at(-1).progress).toBeLessThan(1);
+    vi.restoreAllMocks();
+  });
+
+  it("opens finished on a later visit, and free colouring can carry on", async () => {
+    saveDone(DATE, "free");
+    const user = userEvent.setup();
+    render(<ColouringBoard mandala={mandala} mode="free" />);
+    expect(await screen.findByText("Today’s mandala is complete")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Keep colouring" }));
+    expect(screen.getByRole("radiogroup", { name: "Colour" })).toBeInTheDocument();
+    expect(loadDone(DATE, "free")).toBeNull();
+  });
+
+  it("finishes by itself when every piece is coloured", async () => {
+    const user = userEvent.setup();
+    const { container } = render(<ColouringBoard mandala={mandala} mode="free" persist={false} />);
+    // Full symmetry: one tap per distinct shape colours everything.
+    const covered = new Set<number>();
+    for (let i = 0; i < mandala.regions.length; i++) {
+      if (covered.has(i)) continue;
+      for (const j of index.orbit(i, mandala.symmetry)) covered.add(j);
+      await user.click(piece(container, i));
+    }
+    expect(await screen.findByText("Today’s mandala is complete")).toBeInTheDocument();
   });
 });
 

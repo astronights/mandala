@@ -64,7 +64,6 @@ test("shows a single mandala for today and nothing to browse", async ({ page }) 
       weekday: "short",
       day: "numeric",
       month: "short",
-      year: "numeric",
     }),
   );
   await expect(page.getByTestId("today")).toHaveText(today);

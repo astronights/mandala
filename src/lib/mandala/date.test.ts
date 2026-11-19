@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addDays, formatLong, toISODate, todayISO } from "./date";
+import { addDays, formatDay, formatLong, toISODate, todayISO } from "./date";
 
 afterEach(() => vi.useRealTimers());
 
@@ -46,5 +46,7 @@ describe("dates", () => {
 
   it("formats a readable label", () => {
     expect(formatLong("2026-11-18")).toMatch(/2026/);
+    expect(formatDay("2026-11-18")).not.toMatch(/2026/);
+    expect(formatDay("2026-11-18")).toMatch(/18/);
   });
 });
