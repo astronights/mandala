@@ -78,3 +78,24 @@ describe("preferences", () => {
     expect(loadPreferences()).toBeNull();
   });
 });
+
+describe("modes and merged preferences", () => {
+  it("keeps guided and free canvases apart", () => {
+    saveProgress("2026-11-18", { 1: 1 }, "guided");
+    saveProgress("2026-11-18", { 2: 3 }, "free");
+    expect(loadProgress("2026-11-18")?.fills).toEqual({ 1: 1 });
+    expect(loadProgress("2026-11-18", "free")?.fills).toEqual({ 2: 3 });
+    expect(progressKey("2026-11-18", "free")).not.toBe(progressKey("2026-11-18"));
+  });
+
+  it("saving one preference keeps the others", () => {
+    savePreferences({ symmetry: 4 });
+    savePreferences({ mode: "free" });
+    expect(loadPreferences()).toEqual({ v: STORAGE_VERSION, symmetry: 4, mode: "free" });
+  });
+
+  it("rejects an unknown mode", () => {
+    localStorage.setItem(PREFS_KEY, JSON.stringify({ v: STORAGE_VERSION, symmetry: 2, mode: "x" }));
+    expect(loadPreferences()).toBeNull();
+  });
+});

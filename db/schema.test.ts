@@ -45,8 +45,10 @@ const play = ({
   );
 
 describe("schema: constraints", () => {
-  it("accepts a normal play", async () => {
-    await expect(play({ device: DEVICE_A })).resolves.toBeDefined();
+  it("accepts guided, free and draw plays", async () => {
+    for (const mode of ["colour", "free", "draw"]) {
+      await expect(play({ device: DEVICE_A, mode })).resolves.toBeDefined();
+    }
   });
 
   it.each<[string, Partial<Play>]>([
@@ -120,6 +122,7 @@ describe("schema: activity views", () => {
       finishers: 1,
       colour_plays: 2,
       draw_plays: 1,
+      free_plays: 0,
       avg_active_seconds: 60,
     });
     expect(Number(rows[0].avg_progress)).toBeCloseTo(0.5, 3);

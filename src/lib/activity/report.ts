@@ -4,7 +4,8 @@ import { SUPPORTED_VERSIONS } from "@/lib/mandala/generate";
 export interface PlayReport {
   deviceId: string;
   date: string;
-  mode: "colour" | "draw";
+  /** colour = guided colouring, free = free colouring. */
+  mode: "colour" | "free" | "draw";
   version: number;
   /** Cumulative active seconds for this day and mode. */
   activeSeconds: number;
@@ -57,7 +58,9 @@ export function parsePlayReport(body: unknown, now: Date = new Date()): ParseRes
   if (typeof date !== "string" || !isPlausibleDate(date, now)) {
     return { ok: false, error: "date must be today's date (YYYY-MM-DD)" };
   }
-  if (mode !== "colour" && mode !== "draw") return { ok: false, error: "mode is invalid" };
+  if (mode !== "colour" && mode !== "free" && mode !== "draw") {
+    return { ok: false, error: "mode is invalid" };
+  }
   if (typeof version !== "number" || !SUPPORTED_VERSIONS.includes(version)) {
     return { ok: false, error: "version is not supported" };
   }

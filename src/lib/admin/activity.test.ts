@@ -55,6 +55,7 @@ describe("loadActivity", () => {
       finishers: 1,
       colourPlays: 2,
       drawPlays: 0,
+      freePlays: 0,
       avgActiveSeconds: 60,
       symmetry: summarizeDay("2026-11-18").symmetry,
       pieceCount: summarizeDay("2026-11-18").pieceCount,

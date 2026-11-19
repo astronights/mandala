@@ -4,10 +4,16 @@ A calm daily mandala to colour, made for phones. Like Wordle, everyone gets
 the same one each day, but it's a ritual, not a puzzle: no score, no wrong
 answers. Colouring stays on your device. It can be added to the home screen.
 
-- `/`: today's mandala, and nothing else. Tap pieces to colour them, pinch to
-  zoom in on small pieces, drag to move around. Choose how many **lines of
-  symmetry** help you: `off` colours one piece at a time, and the maximum fills
-  every matching piece at once.
+- `/`: today's mandala, and nothing else.
+  - **Guided** (default): the day comes with its own colours. Pick one and the
+    pieces that want it glow softly; tap to fill. A piece that wants another
+    colour isn't filled, and the app gently points at the right one. Finished
+    colours tick off and the next one is chosen for you.
+  - **Free**: any of the day's colours anywhere, with an eraser. It keeps its
+    own canvas, so switching never mixes the two.
+  - Pinch to zoom in on small pieces, drag to move around. Choose how many
+    **lines of symmetry** help you: `off` colours one piece at a time, and the
+    maximum fills every matching piece at once.
 - `/admin`: **Activity** (players, finishers, time, symmetry use, completion by
   pattern) and **Patterns** (past and upcoming days, seed explorer). Behind a
   passcode screen: set `ADMIN_PASSWORD` in Vercel, enter it once, and that

@@ -45,6 +45,7 @@ export function fillDays(report: ActivityReport, lastDay: string): DayActivity[]
         finishers: 0,
         colourPlays: 0,
         drawPlays: 0,
+        freePlays: 0,
         avgActiveSeconds: 0,
         avgProgress: 0,
       },

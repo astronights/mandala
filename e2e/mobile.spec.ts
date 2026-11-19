@@ -67,6 +67,7 @@ test.describe("on a phone", () => {
   test("pinch zooms in without colouring, a tap still colours, and reset zooms out", async ({
     page,
   }) => {
+    await page.getByRole("button", { name: "Free" }).tap();
     await pinch(page, 60, 240);
     const vb = (await viewBox(page))!.split(" ").map(Number);
     expect(vb[2]).toBeLessThan(500);

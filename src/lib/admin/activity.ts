@@ -12,6 +12,7 @@ export interface DayActivity {
   finishers: number;
   colourPlays: number;
   drawPlays: number;
+  freePlays: number;
   avgActiveSeconds: number;
   avgProgress: number;
 }
@@ -68,6 +69,7 @@ export async function loadActivity(
             finishers::int                 as finishers,
             colour_plays::int              as "colourPlays",
             draw_plays::int                as "drawPlays",
+            free_plays::int                as "freePlays",
             avg_active_seconds::int        as "avgActiveSeconds",
             avg_progress::float8           as "avgProgress"
        from daily_overview
