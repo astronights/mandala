@@ -5,6 +5,7 @@ import {
   addDays,
   DEFAULT_SEED,
   formatLong,
+  FIRST_DAY,
   generateMandala,
   mandalaNumber,
   todayISO,
@@ -19,8 +20,16 @@ import styles from "./admin.module.css";
 type View = "colour" | "line";
 type Tab = "activity" | "patterns";
 
-const HISTORY_DAYS = 10;
+/** History shows the most recent live days, from No. 1 onwards. */
+const HISTORY_DAYS = 30;
 const UPCOMING_DAYS = 10;
+
+/** Live days from No. 1 up to today, newest first (at most `limit`). */
+export function historyDates(today: string, limit = HISTORY_DAYS): string[] {
+  const out: string[] = [];
+  for (let d = today; d >= FIRST_DAY && out.length < limit; d = addDays(d, -1)) out.push(d);
+  return out;
+}
 
 function describeRings(m: Mandala): string {
   return m.rings
@@ -52,7 +61,10 @@ function DayGrid({
             strokeWidth={2}
           />
           <span className={styles.cardDate}>{formatLong(m.date)}</span>
-          <span className={styles.cardMeta}>{m.symmetry}-fold</span>
+          <span className={styles.cardMeta}>
+            {mandalaNumber(m.date) ? `No. ${mandalaNumber(m.date)} · ` : ""}
+            {m.symmetry}-fold
+          </span>
         </button>
       ))}
     </div>
@@ -76,10 +88,7 @@ export default function AdminClient() {
 
   const seedKey = seed.trim() || DEFAULT_SEED;
   const hero = useMemo(() => (date ? generateMandala(date, seedKey) : null), [date, seedKey]);
-  const history = useMemo(
-    () => (today ? Array.from({ length: HISTORY_DAYS }, (_, i) => addDays(today, -(i + 1))) : []),
-    [today],
-  );
+  const history = useMemo(() => (today ? historyDates(today) : []), [today]);
   const upcoming = useMemo(
     () => (today ? Array.from({ length: UPCOMING_DAYS }, (_, i) => addDays(today, i + 1)) : []),
     [today],
@@ -126,6 +135,7 @@ export default function AdminClient() {
                 <button
                   type="button"
                   aria-label="Previous day"
+                  disabled={date <= FIRST_DAY}
                   onClick={() => setDate(addDays(date, -1))}
                 >
                   ←
@@ -209,10 +219,17 @@ export default function AdminClient() {
             </div>
           </section>
 
-          <h2 className={styles.sectionTitle}>Past days</h2>
-          <DayGrid dates={history} seed={seedKey} view={view} onPick={setDate} />
+          <h2 className={styles.sectionTitle}>History</h2>
+          {history.length ? (
+            <DayGrid dates={history} seed={seedKey} view={view} onPick={setDate} />
+          ) : (
+            <p className={styles.muted}>History starts with Mandala No. 1.</p>
+          )}
 
           <h2 className={styles.sectionTitle}>Coming up</h2>
+          <p className={styles.sectionNote}>
+            A preview, generated on the fly. Nothing is saved until a day goes live.
+          </p>
           <DayGrid dates={upcoming} seed={seedKey} view={view} onPick={setDate} />
         </>
       )}

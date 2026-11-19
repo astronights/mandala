@@ -39,8 +39,16 @@ test.describe("admin", () => {
 
     await page.getByRole("button", { name: "Patterns" }).click();
     await expect(page.getByText("live today")).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Past days" })).toBeVisible();
-    await expect(page.locator("main svg[role=img]")).toHaveCount(21);
+    await expect(page.getByRole("heading", { name: "History" })).toBeVisible();
+    await expect(page.getByText(/^Mandala No\. \d+$/)).toBeVisible();
+    // Today + history since No. 1 (up to 30) + 10 coming up.
+    const days =
+      Math.round(
+        (Date.UTC(new Date().getFullYear(), new Date().getMonth(), new Date().getDate()) -
+          Date.UTC(2026, 10, 19)) /
+          86_400_000,
+      ) + 1;
+    await expect(page.locator("main svg[role=img]")).toHaveCount(1 + Math.min(30, days) + 10);
 
     // Signed in: the passcode screen is skipped.
     await page.goto("/admin/login");

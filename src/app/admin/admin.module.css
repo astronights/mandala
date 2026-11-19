@@ -176,6 +176,17 @@
   margin: 64px 0 20px;
 }
 
+.sectionNote {
+  margin: -12px 0 20px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.dateNav > button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
