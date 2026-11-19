@@ -6,6 +6,7 @@ import {
   DEFAULT_SEED,
   formatLong,
   generateMandala,
+  mandalaNumber,
   todayISO,
   type Mandala,
 } from "@/lib/mandala";
@@ -131,6 +132,9 @@ export default function AdminClient() {
                 </button>
                 <div className={styles.dateLabel}>
                   <span data-testid="admin-date">{formatLong(date)}</span>
+                  {mandalaNumber(date) && (
+                    <span className={styles.badge}>Mandala No. {mandalaNumber(date)}</span>
+                  )}
                   {date === today ? (
                     <span className={styles.badge}>live today</span>
                   ) : (

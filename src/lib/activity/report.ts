@@ -1,3 +1,4 @@
+import { liveDates } from "@/lib/day";
 import { SUPPORTED_VERSIONS } from "@/lib/mandala/generate";
 
 /** What the app sends as someone plays (see /api/play). */
@@ -20,7 +21,6 @@ export type ParseResult = { ok: true; value: PlayReport } | { ok: false; error: 
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-const DAY_MS = 86_400_000;
 
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
@@ -38,14 +38,11 @@ function utcDay(iso: string): number | null {
 }
 
 /**
- * A report must be for "today" somewhere on Earth: local dates run from UTC−12
- * to UTC+14, so anything within a day either side of the server's UTC date.
+ * A report must be for a date that is "today" somewhere on Earth right now
+ * (local time runs from UTC−12 to UTC+14), so nothing is recorded early.
  */
 export function isPlausibleDate(iso: string, now: Date): boolean {
-  const t = utcDay(iso);
-  if (t === null) return false;
-  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
-  return t >= today - DAY_MS && t <= today + DAY_MS;
+  return utcDay(iso) !== null && liveDates(now).includes(iso);
 }
 
 export function parsePlayReport(body: unknown, now: Date = new Date()): ParseResult {

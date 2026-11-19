@@ -15,7 +15,8 @@ const valid = {
 
 describe("isPlausibleDate", () => {
   it.each([
-    ["2026-11-17", true],
+    // 12:00 UTC on the 18th: UTC−12 is at midnight starting the 18th, UTC+14 at 02:00 on the 19th.
+    ["2026-11-17", false],
     ["2026-11-18", true],
     ["2026-11-19", true],
     ["2026-11-16", false],

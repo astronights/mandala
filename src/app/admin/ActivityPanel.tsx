@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import type { ActivityReport, DayActivity } from "@/lib/admin/activity";
-import { addDays, formatLong } from "@/lib/mandala";
+import { addDays, formatLong, mandalaNumber } from "@/lib/mandala";
 import controls from "@/components/controls.module.css";
 import styles from "./activity.module.css";
 
@@ -412,7 +412,12 @@ export function ActivityPanel({ today }: { today: string }) {
                     <tbody>
                       {data.daily.map((d) => (
                         <tr key={d.date}>
-                          <th scope="row">{formatLong(d.date)}</th>
+                          <th scope="row">
+                            {mandalaNumber(d.date) && (
+                              <span className={styles.muted}>No. {mandalaNumber(d.date)} · </span>
+                            )}
+                            {formatLong(d.date)}
+                          </th>
                           <td>
                             {d.symmetry ? `${d.symmetry}-fold · ${d.pieceCount} pieces` : "—"}
                           </td>

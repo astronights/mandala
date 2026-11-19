@@ -1,22 +1,27 @@
 import type { Db, Statement } from "@/lib/db/client";
-import { DEFAULT_SEED, MANDALA_VERSION } from "@/lib/mandala/generate";
-import { summarizeDay } from "@/lib/mandala/summary";
+import { DEFAULT_SEED, generateMandala, MANDALA_VERSION } from "@/lib/mandala/generate";
+import { summarize } from "@/lib/mandala/summary";
 import type { PlayReport } from "./report";
 
 /** Ignore updates to the same play more often than this, unless it just finished. */
 export const THROTTLE_SECONDS = 10;
 
 /**
- * Records a day's mandala the first time it's seen. Recomputed on the server
- * from (date, seed, version): never from the client's description of it.
+ * Records a day's mandala once it's live: a summary for analysis plus the
+ * complete generated mandala (every shape, placement and colour, as players
+ * saw it). Recomputed on the server from (date, seed, version), never taken
+ * from the client. A row saved before the full record existed is completed.
  */
 export function dayStatement(date: string, version: number = MANDALA_VERSION): Statement {
-  const day = summarizeDay(date, DEFAULT_SEED, version);
+  const mandala = generateMandala(date, DEFAULT_SEED, version);
+  const day = summarize(mandala);
   return {
     text: `insert into daily_mandalas (play_date, mandala_version, seed, symmetry, ring_count,
-                                       motifs, piece_count, group_count, palette_scheme, palette)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-           on conflict (play_date) do nothing
+                                       motifs, piece_count, group_count, palette_scheme, palette,
+                                       mandala)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11::jsonb)
+           on conflict (play_date) do update set mandala = excluded.mandala
+             where daily_mandalas.mandala is null
            returning 1 as recorded`,
     params: [
       day.date,
@@ -29,13 +34,31 @@ export function dayStatement(date: string, version: number = MANDALA_VERSION): S
       day.groupCount,
       day.paletteScheme,
       day.palette,
+      JSON.stringify(mandala),
     ],
   };
 }
 
-/** Records several days' mandalas; returns the dates newly recorded. */
+/**
+ * Days this server instance has already saved, per database. Saves resending
+ * the ~12 KB record with every play report; a new instance checks once.
+ */
+const savedDays = new WeakMap<Db, Set<string>>();
+const saved = (db: Db) => {
+  let set = savedDays.get(db);
+  if (!set) savedDays.set(db, (set = new Set()));
+  return set;
+};
+
+/** For tests that reset the database between cases. */
+export function forgetSavedDays(db: Db): void {
+  savedDays.delete(db);
+}
+
+/** Records several days' mandalas; returns the dates newly recorded (or completed). */
 export async function recordDays(db: Db, dates: string[]): Promise<string[]> {
   const results = await db.transaction(dates.map((d) => dayStatement(d)));
+  dates.forEach((d) => saved(db).add(d));
   return dates.filter((_, i) => (results[i]?.length ?? 0) > 0);
 }
 
@@ -54,13 +77,15 @@ export async function recordPlay(
   report: PlayReport,
   { throttleSeconds = THROTTLE_SECONDS }: { throttleSeconds?: number } = {},
 ): Promise<{ written: boolean }> {
+  // The day's record only goes along until this instance knows it's saved.
+  const day = saved(db).has(report.date) ? [] : [dayStatement(report.date, report.version)];
   const results = await db.transaction([
     {
       text: `insert into devices (id) values ($1)
              on conflict (id) do update set last_seen_at = greatest(devices.last_seen_at, now())`,
       params: [report.deviceId],
     },
-    dayStatement(report.date, report.version),
+    ...day,
     {
       text: `insert into plays (device_id, play_date, mode, mandala_version, active_seconds,
                                 progress, symmetry_lines, completed_at)
@@ -88,5 +113,6 @@ export async function recordPlay(
     },
   ]);
 
-  return { written: (results[2]?.length ?? 0) > 0 };
+  saved(db).add(report.date);
+  return { written: (results[results.length - 1]?.length ?? 0) > 0 };
 }

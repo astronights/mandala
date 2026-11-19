@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { loadPreferences } from "@/lib/storage/progress";
-import DailyClient from "./DailyClient";
+import DailyClient, { dayLabel } from "./DailyClient";
 
 afterEach(() => vi.useRealTimers());
 
@@ -67,5 +67,13 @@ describe("DailyClient", () => {
       vi.advanceTimersByTime(60_000);
     });
     expect(screen.getByTestId("today").textContent).not.toBe(before);
+  });
+});
+
+describe("dayLabel", () => {
+  it("numbers days from launch", () => {
+    expect(dayLabel("2026-11-19")).toMatch(/^No\. 1 · /);
+    expect(dayLabel("2026-11-20")).toMatch(/^No\. 2 · /);
+    expect(dayLabel("2026-11-18")).not.toMatch(/No\./);
   });
 });

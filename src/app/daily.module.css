@@ -75,7 +75,13 @@
     font-size: 20px;
   }
   .modes button {
-    padding: 0 8px;
+    padding: 0 7px;
     font-size: 12px;
+  }
+  .date {
+    font-size: 12px;
+  }
+  .headerActions button[aria-label^="Theme"] {
+    width: 36px;
   }
 }

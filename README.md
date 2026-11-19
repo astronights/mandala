@@ -72,16 +72,21 @@ for the admin page: a random per-device UUID and one row per device, day and
 mode (time spent, progress, symmetry setting, finished or not). There are no
 accounts, emails, IPs or user agents.
 
-| Object                 | What it is                                                 |
-| ---------------------- | ---------------------------------------------------------- |
-| `devices`              | Anonymous install ID, first and last seen                  |
-| `plays`                | One row per device per day per mode, upserted as they play |
-| `daily_activity` view  | Players, finishers, average time and progress per day      |
-| `symmetry_usage` view  | How often each lines-of-symmetry setting is used           |
-| `daily_mandalas`       | Each day's seed, generator version and pattern summary     |
-| `daily_overview` view  | Each day's pattern alongside its activity                  |
-| `admin_login_failures` | Timestamps of wrong passcodes, for the lockout             |
-| `schema_migrations`    | Applied migrations and their checksums (managed)           |
+| Object                 | What it is                                                                        |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `devices`              | Anonymous install ID, first and last seen                                         |
+| `plays`                | One row per device per day per mode, upserted as they play                        |
+| `daily_activity` view  | Players, finishers, average time and progress per day                             |
+| `symmetry_usage` view  | How often each lines-of-symmetry setting is used                                  |
+| `daily_mandalas`       | Each live day: number, seed, version, summary, and the complete generated mandala |
+| `daily_overview` view  | Each day's pattern alongside its activity                                         |
+| `admin_login_failures` | Timestamps of wrong passcodes, for the lockout                                    |
+| `schema_migrations`    | Applied migrations and their checksums (managed)                                  |
+
+Days are numbered like Wordle's: 19 November 2026 is **Mandala No. 1**.
+Each day's row keeps the complete generated mandala (every shape, placement
+and colour, about 12 KB) as well as the summary. Rows are written only for
+days that are "today" somewhere in the world, never in advance.
 
 `daily_mandalas` is filled by the first play of each day and by a daily
 Vercel Cron job (`vercel.json` → `/api/cron/record-day`, which needs

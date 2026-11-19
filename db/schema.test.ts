@@ -165,6 +165,13 @@ describe("schema: daily_mandalas", () => {
 
   beforeEach(() => db.exec("truncate daily_mandalas"));
 
+  it("numbers days from launch (19 November 2026 is #1)", async () => {
+    await insert({ play_date: "2026-11-19" });
+    await insert({ play_date: "2026-12-01" });
+    const { rows } = await db.query("select day_number from daily_mandalas order by play_date");
+    expect(rows).toEqual([{ day_number: 1 }, { day_number: 13 }]);
+  });
+
   it("stores one row per date, with an optional override", async () => {
     await insert({ override_seed: "lotus", override_note: "Festival day" });
     await expect(insert()).rejects.toThrow(/duplicate key/);

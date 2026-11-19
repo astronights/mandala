@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatCountdown, msUntilNextDay } from "./day";
+import { formatCountdown, liveDates, msUntilNextDay } from "./day";
 
 describe("msUntilNextDay", () => {
   it("counts to the next local midnight", () => {
@@ -18,4 +18,16 @@ describe("formatCountdown", () => {
     [6 * 3_600_000 + 12 * 60_000, "6h 12m"],
     [23 * 3_600_000, "23h 0m"],
   ])("%i ms → %s", (ms, out) => expect(formatCountdown(ms)).toBe(out));
+});
+
+describe("liveDates", () => {
+  it("lists the dates that are today somewhere", () => {
+    expect(liveDates(new Date("2026-11-19T00:07:00Z"))).toEqual(["2026-11-18", "2026-11-19"]);
+    // 11:59 UTC: still the 18th in UTC−12, already the 20th in UTC+14.
+    expect(liveDates(new Date("2026-11-19T11:59:00Z"))).toEqual([
+      "2026-11-18",
+      "2026-11-19",
+      "2026-11-20",
+    ]);
+  });
 });

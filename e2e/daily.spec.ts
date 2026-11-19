@@ -66,7 +66,7 @@ test("shows a single mandala for today and nothing to browse", async ({ page }) 
       month: "short",
     }),
   );
-  await expect(page.getByTestId("today")).toHaveText(today);
+  await expect(page.getByTestId("today")).toHaveText(new RegExp(`^No\\. \\d+ · ${today}$`));
   await expect(page.locator("main svg[role=img]")).toHaveCount(1);
   await expect(page.getByRole("button", { name: /previous day|next day/i })).toHaveCount(0);
   await expect(page.getByText(/past days|coming up/i)).toHaveCount(0);

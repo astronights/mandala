@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { formatDay, generateMandala, todayISO } from "@/lib/mandala";
+import { formatDay, generateMandala, mandalaNumber, todayISO } from "@/lib/mandala";
 import { ColouringBoard } from "@/components/ColouringBoard";
 import { DrawBoard } from "@/components/DrawBoard";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -13,6 +13,12 @@ import {
   type PlayMode,
 } from "@/lib/storage/progress";
 import styles from "./daily.module.css";
+
+/** "No. 1 · Thu, 19 Nov", or just the date before launch. */
+export function dayLabel(date: string): string {
+  const n = mandalaNumber(date);
+  return n ? `No. ${n} · ${formatDay(date)}` : formatDay(date);
+}
 
 const MODE_LABEL: Record<PlayMode, string> = { guided: "Guided", free: "Free", draw: "Draw" };
 
@@ -57,7 +63,7 @@ export default function DailyClient() {
           <h1 className={styles.title}>Mandala</h1>
           {today && (
             <p className={styles.date} data-testid="today">
-              {formatDay(today)}
+              {dayLabel(today)}
             </p>
           )}
         </div>

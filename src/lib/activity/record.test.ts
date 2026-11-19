@@ -1,8 +1,9 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { migratedAppDb } from "../../../db/testing.ts";
 import { summarizeDay } from "@/lib/mandala/summary";
+import { generateMandala } from "@/lib/mandala/generate";
 import { handlePlay } from "./handler";
-import { recordPlay } from "./record";
+import { forgetSavedDays, recordPlay } from "./record";
 import type { PlayReport } from "./report";
 
 let t: Awaited<ReturnType<typeof migratedAppDb>>;
@@ -12,6 +13,7 @@ beforeAll(async () => {
 afterAll(() => t.close());
 beforeEach(async () => {
   await t.pg.exec("delete from plays; delete from devices; delete from daily_mandalas;");
+  forgetSavedDays(t.db);
 });
 
 const DEVICE = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
@@ -96,6 +98,44 @@ describe("recordPlay", () => {
     expect(await t.db.query("select override_note from daily_mandalas")).toEqual([
       { override_note: "keep me" },
     ]);
+  });
+});
+
+describe("the full daily record", () => {
+  it("keeps the complete generated mandala, exactly as players saw it", async () => {
+    await recordPlay(t.db, report());
+    const [row] = await t.db.query<{ mandala: unknown; day_number: number }>(
+      "select mandala, day_number from daily_mandalas",
+    );
+    expect(row.mandala).toEqual(JSON.parse(JSON.stringify(generateMandala("2026-11-18"))));
+    expect(row.day_number).toBe(0); // the day before launch
+  });
+
+  it("completes a row saved before the full record existed, and never rewrites it", async () => {
+    await t.pg.exec(`insert into daily_mandalas (play_date, mandala_version, seed, symmetry,
+      ring_count, motifs, piece_count, group_count, palette_scheme, palette)
+      values ('2026-11-18', 1, 'mandala', 8, 1, '{centre}', 10, 3, 'analogous', '{x}')`);
+    await recordPlay(t.db, report());
+    const [row] = await t.db.query<{ mandala: { date: string } | null }>(
+      "select mandala from daily_mandalas",
+    );
+    expect(row.mandala?.date).toBe("2026-11-18");
+
+    await t.pg.exec(`update daily_mandalas set mandala = '{"kept": true}'`);
+    forgetSavedDays(t.db);
+    await recordPlay(t.db, report({ mode: "draw" }));
+    expect(await t.db.query("select mandala from daily_mandalas")).toEqual([
+      { mandala: { kept: true } },
+    ]);
+  });
+
+  it("sends the day's record only until it's known to be saved", async () => {
+    const spy = vi.spyOn(t.db, "transaction");
+    await recordPlay(t.db, report());
+    await recordPlay(t.db, report({ mode: "draw" }));
+    expect(spy.mock.calls[0][0]).toHaveLength(3);
+    expect(spy.mock.calls[1][0]).toHaveLength(2);
+    spy.mockRestore();
   });
 });
 
